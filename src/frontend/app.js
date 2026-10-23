@@ -1,20 +1,21 @@
-/* Browser entry point. Production never loads dev/fixtures.js. */
+/* Browser entry point. Production never loads the dev/ demo runtime. */
 (() => {
   'use strict';
   const { byId, element } = window.SIA.dom;
   const { preview, rpc } = window.SIA.api;
-  const { renderDashboard, table } = window.SIA.components;
+  const { renderDashboard } = window.SIA.components;
   const modules = {
     dashboard: ['Dashboard', ''],
-    kelas: ['Data Kelas', 'Daftar kelas aktif yang dapat diakses akun Anda. Pengelolaan kelas belum tersedia.'],
-    siswa: ['Data Siswa', 'Daftar siswa aktif pada kelas yang dapat Anda akses. Pengelolaan siswa belum tersedia.'],
-    absensi: ['Absensi Siswa', 'Modul pencatatan absensi masih direncanakan. Belum ada penyimpanan atau perubahan data kehadiran.'],
+    kelas: ['Data Kelas', 'Kelola rombongan belajar dan wali kelas. Guru hanya dapat melihat kelas penugasannya.'],
+    siswa: ['Data Siswa', 'Cari siswa, kelola data dan keanggotaan kelas. Riwayat siswa nonaktif tetap disimpan.'],
+    absensi: ['Absensi Siswa', 'Catat dan perbarui kehadiran siswa per kelas, tanggal, dan sesi yang diizinkan.'],
     nilai: ['Nilai & Leger', 'Modul penilaian dan perhitungan leger masih direncanakan. Belum ada nilai yang disimpan.'],
     jurnal: ['Jurnal Mengajar', 'Modul pencatatan jurnal mengajar masih direncanakan. Belum ada jurnal yang disimpan.'],
     guru: ['Akun Guru', 'Manajemen akun dan perubahan role melalui aplikasi belum tersedia. Akses awal diatur administrator di Sheets.'],
     laporan: ['Laporan Kehadiran', 'Modul laporan dan ekspor masih direncanakan. Grafik dashboard saat ini hanya merangkum catatan yang sudah diisi.']
   };
-  const state = { bootstrap: null, route: 'dashboard', request: 0, boot: 0, ready: false };
+  const state = { bootstrap: null, route: 'dashboard', request: 0, boot: 0, ready: false, guard: null, dirty: null };
+  const pages = { kelas: window.SIA.pages.classes, siswa: window.SIA.pages.students, absensi: window.SIA.pages.attendance };
 
   function showError(error) {
     byId('error-message').textContent = error.message;
@@ -35,6 +36,12 @@
   async function loadRoute() {
     if (!state.ready) return;
     const route = location.hash.slice(1) || 'dashboard';
+    if (route !== state.route && state.guard && !state.guard()) {
+      history.replaceState(null, '', '#' + state.route);
+      return;
+    }
+    state.guard = null;
+    state.dirty = null;
     state.route = Object.hasOwn(modules, route) ? route : 'dashboard';
     const current = state.route;
     const request = ++state.request;
@@ -58,6 +65,11 @@
         // Hide old figures while a different date/class is being loaded.
         byId('dashboard-panel').hidden = true;
         if (!byId('date-filter').value) throw new Error('Pilih tanggal ringkasan terlebih dahulu.');
+        const rooms = await rpc('listClasses');
+        if (request !== state.request) return;
+        const previous = byId('class-filter').value;
+        byId('class-filter').replaceChildren(new Option('Semua kelas', ''), ...rooms.map((room) => new Option(room.name, room.id)));
+        byId('class-filter').value = rooms.some((room) => room.id === previous) ? previous : '';
         const data = await rpc('getDashboard', { date: byId('date-filter').value, classId: byId('class-filter').value });
         if (request !== state.request) return;
         renderDashboard(data);
@@ -65,16 +77,14 @@
       } else {
         byId('module-title').textContent = modules[current][0];
         byId('module-description').textContent = modules[current][1];
-        byId('module-content').replaceChildren(element('p', 'Memuat…'));
-        if (current === 'kelas' || current === 'siswa') {
-          const records = await rpc(current === 'kelas' ? 'listClasses' : 'listStudents');
-          if (request !== state.request) return;
-          const names = Object.fromEntries(state.bootstrap.classes.map((item) => [item.id, item.name]));
-          byId('module-content').replaceChildren(current === 'kelas'
-            ? table(['Kelas', 'Tingkat', 'ID tahun ajaran'], records.map((item) => [item.name, item.level, item.yearId]))
-            : table(['NIS', 'Nama siswa', 'Kelas'], records.map((item) => [item.nis, item.name, item.classIds.map((id) => names[id] || id).join(', ')])));
+        const host = element('div');
+        byId('module-content').replaceChildren(host);
+        if (pages[current]) {
+          await pages[current](host, { user: state.bootstrap.user, today: state.bootstrap.today, rpc, preview,
+            isCurrent: () => request === state.request,
+            setNavigationGuard: (guard, dirty) => { if (request === state.request) { state.guard = guard; state.dirty = dirty; } } });
         } else {
-          byId('module-content').replaceChildren(element('p', 'Tahap perencanaan · fitur ini belum diimplementasikan.', 'notice'));
+          host.replaceChildren(element('p', 'Fitur dalam pengembangan', 'notice'));
           if (current === 'guru' && state.bootstrap.user.role !== 'ADMIN_KEPALA_SEKOLAH') {
             byId('module-description').textContent = 'Halaman ini direncanakan khusus administrator. Tidak ada data akun guru yang ditampilkan.';
           }
@@ -106,8 +116,8 @@
       state.bootstrap = data;
       state.ready = true;
       byId('notice').textContent = preview
-        ? 'Mode demo pengembangan · semua angka dan nama adalah data contoh. Tidak ada perubahan yang disimpan.'
-        : 'Data Google Sheets · akses baca sesuai role. Aplikasi masih dalam tahap pengembangan.';
+        ? 'Mode demo pengembangan · semua data adalah contoh. Perubahan hanya di memori sesi lokal, bukan Google Sheets.'
+        : 'Data Google Sheets · akses sesuai role. Periksa pilihan sebelum menyimpan perubahan.';
       byId('profile-name').textContent = data.user.name;
       byId('greeting-name').textContent = data.user.name + '!';
       byId('profile-role').textContent = data.user.role === 'GURU' ? 'Guru' : 'Admin Kepala Sekolah';
@@ -133,6 +143,17 @@
   byId('class-filter').addEventListener('change', loadRoute);
   byId('date-filter').addEventListener('change', loadRoute);
   window.addEventListener('hashchange', loadRoute);
+  document.addEventListener('click', (event) => {
+    const link = event.target.closest('a[href^="#"]');
+    if (link && Object.hasOwn(modules, link.hash.slice(1))) {
+      event.preventDefault();
+      if (location.hash === link.hash) return;
+      location.hash = link.hash;
+    }
+  });
+  window.addEventListener('beforeunload', (event) => {
+    if (state.dirty?.()) { event.preventDefault(); event.returnValue = ''; }
+  });
   byId('search').addEventListener('input', (event) => {
     const query = event.target.value.trim().toLocaleLowerCase('id-ID');
     const results = byId('search-results');

@@ -1,54 +1,49 @@
-# Pengujian fondasi
+# Pengujian tahap 2
 
 ## Perintah
 
 ```sh
 npm ci
-npm run check
+npm run check          # build + node:test + Playwright
+npm run build          # artefak clasp final
 ```
 
-Node test runner (`node:test`) menguji backend menggunakan mock layanan Apps Script dan Sheets. Playwright menguji browser Chromium pada port terpisah `4174`, termasuk server demo aktual. `npm test` tidak mengeksekusi Playwright; `npm run check` menjalankan keduanya. Playwright menyimpan screenshot responsif pada `test-results/`; trace dan screenshot kegagalan juga di sana, semuanya diabaikan Git.
+`npm test` menjalankan suite Node. `npm run test:ui` menjalankan Chromium dan server lokal pada port 4174. Chromium sistem atau CHROMIUM_PATH digunakan bila tersedia; alternatifnya `npx playwright install chromium`. Screenshot dan trace berada pada test-results/ dan tidak dilacak Git.
 
-Jika browser belum tersedia, ikuti [instalasi](installation.md). Pengujian tidak membutuhkan kredensial Google dan tidak mengirim atau menulis data ke Google. Seluruh nama/email uji adalah data sintetis; domain email `.test` tidak mewakili akun login.
+## Lingkungan dan cakupan
 
-## Cakupan otomatis
+Kode `.gs` asli dievaluasi dalam VM dengan mock Apps Script/Sheets, tidak ditulis ulang sebagai backend berbeda. Runtime mock berada pada `dev/sheets-runtime.mjs`, dipakai oleh tes dan server demo. Browser demo memanggil fungsi yang sama melalui endpoint lokal yang hanya mengakses seed sintetis dalam memori per sesi. Identitas demo admin/guru hanya berlaku di server lokal; mekanisme tersebut tidak disertakan dalam dist.
 
-- Bootstrap, nama sekolah dari Sheets mock, serialisasi DTO tanpa tabel akun/email.
-- Seluruh RPC data menolak identitas kosong, pengguna tidak terdaftar, dan akun nonaktif.
-- Email duplikat, role tidak dikenal, normalisasi email dan boolean `FALSE`.
-- Guru wali kelas/penugasan aktif, penugasan nonaktif, kelas arsip, pemalsuan filter kelas/role, dan guru tanpa kelas.
-- Agregasi admin dan filter kelas/tanggal; pekan Senin–Minggu; penyebut catatan; null saat tanpa data.
-- Tanggal tidak valid, tipe ID salah, header/tab hilang, status invalid dan catatan siswa-sesi duplikat.
-- Pembacaan bulk satu kali per tab per request dan penyembunyian pesan error internal.
-- Initializer dapat diulang, mempertahankan data, membuat header tanpa dummy, memvalidasi sebelum penambahan.
-- Paket build deterministik: manifest privat, source backend dapat dievaluasi, template HTML Service, fixture hanya pada demo.
-- UI desktop dan lebar 360/390/768/1024px tanpa overflow halaman; menu mobile, filter, pencarian, tabel kelas/siswa, placeholder fitur, keadaan error tanpa Google, serta alur RPC mock dan rendering teks inert terhadap HTML dari Sheets.
+Cakupan:
 
-Ini pengujian fungsional, bukan sertifikasi keamanan, benchmark 500 siswa, tes kuota Google, atau validasi deployment produksi. Mock tidak mereplikasi seluruh perilaku Apps Script, OAuth, dan spreadsheet.
+- Tes fondasi: bootstrap, penolakan akun/role, cakupan guru, agregasi/tanggal kosong, validasi skema dan build deterministik tanpa fixture dalam paket Google.
+- Kelas: tambah/edit/nonaktif tanpa hapus, filter, referensi tahun/wali, duplikasi, role admin/guru, revision, lock, error audit, kompensasi dan kegagalan kompensasi.
+- Siswa: tambah/edit/pindah/nonaktif, nol awal NIS/NISN, NIS duplikat termasuk nonaktif, cakupan role, input malformed, pagination seluruh 500 siswa, histori keanggotaan, konflik, kegagalan lintas tab dan blank row fisik.
+- Absensi: roster aktif/pending, simpan/edit sesi yang sama, penolakan replay revision, kelas/mapel guru, H/S/I/A, seluruh roster wajib, status/siswa/formula invalid, sesi duplikat, data lama malformed, roster berubah, catatan historis, flush failure, kompensasi, dan penyimpanan bulk 500 siswa.
+- Browser: dashboard dan responsif 360/390/768/1024px, CRUD/nonaktif kelas/siswa melalui form, pencarian/filter/pagination, absensi simpan/muat ulang/edit, navigasi desktop/mobile, draft yang belum disimpan, konflik data, kegagalan Sheets tanpa pesan sukses, rendering HTML sebagai teks, guru read-only pada master dan penolakan kelas lain, serta placeholder yang jujur.
 
-## Hasil validasi lokal fondasi — 23 Oktober 2026
+Mock mensimulasikan kegagalan write/flush dan kontensi lock secara deterministik. Ini tidak mereplikasi konkurensi jaringan Google, otorisasi OAuth, sharing file, timeout Apps Script, atau pemulihan transaksi atomik.
 
-Pada lingkungan cloud dengan Node 24.19.0 dan Chromium 154:
+## Hasil validasi lokal — 23 Oktober 2026
 
-- Instalasi ulang `npm ci` dari lockfile berhasil.
-- `npm run build` berhasil, menghasilkan 11 file paket Apps Script.
-- `npm test`: **30 lulus**, 0 gagal, 0 dilewati.
-- `npm run test:ui`: **11 lulus**, 0 gagal, 0 dilewati.
-- `npm run clasp -- -P .clasp.json.example status` memverifikasi hanya 11 file `dist/` yang masuk paket; tidak membutuhkan login atau mengirim kode.
-- Screenshot desktop dan mobile ditinjau terhadap referensi; sidebar, banner, warna kartu, grafik, dan layout responsif tersedia.
+- `npm run check`: berhasil, **63 tes backend/build + 20 tes browser lulus**, 0 gagal, 0 dilewati.
+- `npm run build` terpisah: berhasil, menghasilkan 12 file .gs, 3 .html, dan 1 manifest (16 file).
+- `npm run clasp -- -P .clasp.json.example status`: hanya file dist yang dipilih; tidak mengirim kode atau memakai proyek Google nyata.
+- Screenshot dashboard dan modul operasional mobile ditinjau; palet referensi dan navigasi responsif dipertahankan.
+- Skema database v1, manifest, konfigurasi contoh ID, dan referensi dashboard dibandingkan byte-per-byte dengan basis tahap 2 dan tetap identik.
 
-Login Google, pembacaan spreadsheet nyata, dan deployment Apps Script belum dijalankan. Hasil di atas adalah baseline lokal; jalankan ulang setelah perubahan kode atau konfigurasi.
+Login/integrasi Google, otorisasi akun sekolah nyata, serta push/deployment tahap 2 ke Apps Script tidak dijalankan dari lingkungan ini.
 
-## Checklist manual pada Google — belum dijalankan otomatis
+## Checklist Google pada proyek yang sudah ada
 
-1. Konfigurasikan proyek/spreadsheet pengembangan, timezone sama, dan Script Property sesuai panduan instalasi.
-2. Push ke proyek pengembangan, jalankan initializer dua kali; pastikan data yang ada tidak berubah dan header tepat.
-3. Buka test deployment privat sebagai pengembang yang terdaftar. Pastikan nama sekolah dan roster cocok dengan Sheets dan angka dummy 288 tidak muncul tanpa data yang sesuai.
-4. Buat data nonpribadi: dua kelas, empat siswa, dua hari sesi, status H/S/I/A; bandingkan dashboard dengan perhitungan manual, termasuk tanggal tanpa catatan dan filter kelas.
-5. Setelah kebijakan multiuser ditinjau, uji Admin, Guru A, Guru B, akun nonaktif, dan akun tidak terdaftar pada sesi browser berbeda. Uji ID kelas yang dipalsukan di RPC, bukan hanya menu tersembunyi.
-6. Verifikasi identitas pada mode deployment yang dipilih dan izin akses langsung ke spreadsheet. Akses file tidak boleh melanggar batas data sekolah yang disepakati; model awal belum mengisolasi data mentah antarguru.
-7. Uji kegagalan izin spreadsheet, header salah, dan identitas kosong; pastikan tampil error tanpa data dummy atau data lama.
-8. Ukur waktu/kuota pada 100–500 siswa dan histori representatif. Tetapkan penyebut laporan resmi, sesi harian/mapel, dan kebijakan keanggotaan historis.
-9. Sebelum membuka mutasi, uji validasi, formula injection, role, foreign key, replay/idempotensi, konkurensi dua guru, lock, kegagalan parsial, serta audit/backup.
+1. Backup spreadsheet, pertahankan kedua ID dan manifest/kebijakan deployment yang sudah ditinjau. Skema v1 tidak berubah; jangan reset database.
+2. Gunakan clasp status untuk meninjau 16 file dist sebelum push yang dilakukan pengembang. Jangan kirim fixture, token, atau data pribadi ke GitHub/Apps Script source.
+3. Pada salinan spreadsheet pengembangan atau data nonpribadi yang disetujui, uji kelas baru/edit/nonaktif serta siswa baru/pindah/nonaktif. Periksa baris lama, foreign key, dan AuditLog tetap tersedia.
+4. Uji NIS ganda, nama kelas-tahun ganda, tanggal invalid, formula input, dan akun tidak terdaftar; pastikan tidak ada penulisan.
+5. Uji Admin, Guru A, Guru B, dan akun nonaktif pada sesi Google terpisah. Coba RPC dengan classId dan subjectId di luar penugasan, bukan hanya memeriksa menu tersembunyi.
+6. Verifikasi izin file Sheets langsung sesuai kebijakan sekolah. USER_ACCESSING membutuhkan izin spreadsheet dan tidak mengisolasi data mentah antarguru. Tinjau executeAs/Workspace tanpa mengganti identitas dengan email kiriman klien.
+7. Simpan absensi dua kali pada sesi yang sama; pastikan ID/jumlah baris tidak bertambah. Buka dua form, simpan dari yang pertama lalu kedua; yang kedua harus CONFLICT dan tidak menimpa.
+8. Uji gangguan layanan hanya pada database pengembangan yang dapat dipulihkan, periksa kompensasi serta langkah pemulihan manual. Jangan menyatakan transaksi atomik.
+9. Ukur latensi/kuota pada 100–500 siswa dan histori panjang. Tentukan batas tanggal edit, kebijakan tutup buku, backup, serta retensi sebelum operasional sekolah.
 
-Catat hasil uji Google pada pekerjaan integrasi berikutnya. Jangan menandai checklist ini lulus hanya karena tes lokal berhasil.
+Deployment sebelumnya dikonfirmasi pengguna. Validasi kode tahap 2 di atas tetap lokal sampai langkah Google benar-benar dijalankan dan dicatat. Build, status clasp, atau tes mock tidak membuktikan deployment/integrasi Google berhasil.

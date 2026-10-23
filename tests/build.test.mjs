@@ -7,7 +7,7 @@ import vm from 'node:vm';
 test('build produces clasp package with valid manifest, private schema and no demo fixtures', async () => {
   await build();
   const files = await readdir(`${root}dist`);
-  assert.equal(files.length, 11);
+  assert.equal(files.length, (await readdir(`${root}src/backend`)).filter((name) => name.endsWith('.gs')).length + 5);
   assert.ok(files.every((file) => /\.(gs|html|json)$/.test(file)));
   const manifest = JSON.parse(await readFile(`${root}dist/appsscript.json`, 'utf8'));
   assert.equal(manifest.webapp.access, 'MYSELF');
@@ -24,7 +24,7 @@ test('build produces clasp package with valid manifest, private schema and no de
   assert.ok(!scripts.includes('Siswa Contoh'));
   const preview = await readFile(`${root}.preview/index.html`, 'utf8');
   assert.ok(preview.includes('window.SIA_PREVIEW = true'));
-  assert.ok(preview.includes('DEMO-ADMIN'));
+  assert.ok(preview.includes('/__demo/rpc'));
   const index = await readFile(`${root}dist/Index.html`, 'utf8');
   assert.ok(index.includes("<?!= include_('Styles'); ?>"));
   assert.ok(index.includes("<?!= include_('Scripts'); ?>"));

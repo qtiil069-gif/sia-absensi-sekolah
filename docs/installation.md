@@ -1,5 +1,22 @@
 # Instalasi dan deployment pengembangan
 
+## Pembaruan tahap 2 pada proyek yang sudah berjalan
+
+Gunakan proyek Apps Script, Script ID di `.clasp.json`, dan `APP_SPREADSHEET_ID` yang sudah berhasil dipakai. Jangan membuat proyek baru, menyalin template di atas konfigurasi lokal yang ada, atau mengganti ID. Skema v1 tetap identik; **jangan menjalankan reset/initializer atau migrasi ulang**. Cadangkan spreadsheet sebelum uji tulis pada layanan nyata dan gunakan salinan pengembangan bila tersedia.
+
+```sh
+npm ci
+npm run check
+npm run build
+npm run clasp:status
+npm run clasp:push
+```
+
+`clasp:push` membangun ulang lalu menjalankan `clasp push`; ini mengirim sumber, bukan membuat deployment produksi. Tinjau file yang akan dikirim dan manifest proyek aktual terlebih dahulu, khususnya bila access/executeAs diatur manual. Manifest repo dipertahankan pada pekerjaan ini. Tidak ada clasp push/deploy yang dijalankan oleh agen untuk tahap 2. Perubahan sumber belum diuji pada Google nyata dari cloud ini.
+
+Tab TahunAjaran perlu berisi tahun nyata yang aktif sebelum Admin dapat menambah kelas; tambah baris tersebut manual bila masih kosong. Pengguna aktif, wali/penugasan dan mapel harus memakai ID stabil yang cocok. Panduan fitur: [operasional.md](operasional.md). Bagian berikut berlaku untuk pemasangan baru; **lewati pembuatan proyek dan inisialisasi jika lingkungan Anda sudah berjalan**.
+
+
 ## 1. Alat lokal/cloud
 
 Prasyarat: Node.js **24 LTS**, npm, Git; Chromium untuk pengujian UI. `clasp` sudah dipin sebagai dev dependency, sehingga tidak perlu instalasi global.
@@ -57,7 +74,7 @@ npm run clasp:status          # periksa hanya file dist yang masuk
 npm run clasp:push            # mengirim kode, BUKAN membuat deployment produksi
 ```
 
-Paket mencakup tujuh file `.gs`, tiga `.html`, dan satu manifest JSON. `dev/`, tes, docs, `node_modules`, konfigurasi clasp, serta HTML demo tidak dikirim. Jangan mengedit hasil `dist/`; build selanjutnya menggantinya.
+Paket tahap 2 mencakup dua belas file `.gs`, tiga `.html`, dan satu manifest JSON (16 file total). `dev/`, tes, docs, `node_modules`, konfigurasi clasp, serta HTML demo tidak dikirim. Jangan mengedit hasil `dist/`; build selanjutnya menggantinya.
 
 ## 4. Inisialisasi header dan allowlist
 
@@ -103,5 +120,7 @@ Tidak ada deployment produksi yang dilakukan oleh build, pengujian, atau proses 
 | `SCHEMA_MISMATCH` | Bandingkan header/urutannya dengan JSON; cadangkan sebelum memperbaiki manual. |
 | `DATA_INVALID` | Periksa status H/S/I/A, ID sesi duplikat, dan pasangan siswa-sesi duplikat pada pekan yang diminta. |
 | `INTERNAL` | Periksa izin spreadsheet, ID, kuota, dan log Apps Script; pesan teknis tidak dikirim ke browser. |
-| Demo kosong di tanggal tertentu | Data sintetis hanya untuk 19–23 Oktober 2026. |
+| Demo belum berisi catatan di tanggal tertentu | Catatan awal sintetis hanya 19–23 Oktober 2026; form dapat menyimpan catatan tambahan hanya di memori sesi demo. |
 | Perubahan sumber belum terlihat | Mulai ulang `npm run dev`; untuk Google, build, tinjau status, lalu push ke proyek pengembangan. |
+
+Error operasional tambahan (DUPLICATE, CONFLICT, BUSY, WRITE_FAILED, RECOVERY_REQUIRED) dijelaskan pada [panduan operasional](operasional.md). Jangan mengulang simpan otomatis setelah error; muat ulang dan rekonsiliasi dahulu.

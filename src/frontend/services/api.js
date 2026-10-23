@@ -11,9 +11,11 @@
       }
       const runner = google.script.run.withSuccessHandler((result) => {
         if (result?.ok) resolve(result.data);
-        else reject(new Error(result?.error?.message || 'Respons layanan tidak valid.'));
+        else { const error = new Error(result?.error?.message || 'Respons layanan tidak valid.'); error.code = result?.error?.code; reject(error); }
       }).withFailureHandler(() => reject(new Error('Koneksi Apps Script gagal. Silakan coba lagi.')));
-      const allowed = ['getBootstrap', 'getDashboard', 'listClasses', 'listStudents'];
+      const allowed = ['getBootstrap', 'getDashboard', 'listClasses', 'listStudents', 'getRosterOptions',
+        'createClass', 'updateClass', 'deactivateClass', 'queryStudents', 'createStudent', 'updateStudent', 'deactivateStudent',
+        'getAttendanceOptions', 'getAttendance', 'saveAttendance'];
       if (!allowed.includes(name)) return reject(new Error('Fungsi tidak dikenal.'));
       if (args === undefined) runner[name]();
       else runner[name](args);

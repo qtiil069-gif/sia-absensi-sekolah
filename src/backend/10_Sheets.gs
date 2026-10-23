@@ -10,10 +10,9 @@ function rows_(context, name) {
   }) || values[0].length !== headers.length) {
     fail_('SCHEMA_MISMATCH', 'Header database tidak sesuai: ' + name + '.');
   }
-  var rows = values.slice(1).filter(function (row) {
-    return row.some(function (cell) { return cell !== ''; });
-  }).map(function (row) {
-    var result = {};
+  var rows = values.slice(1).map(function (row, index) {
+    if (!row.some(function (cell) { return cell !== ''; })) return null;
+    var result = { _row: index + 2 };
     headers.forEach(function (header, index) {
       var value = row[index];
       if (value instanceof Date) {
@@ -23,7 +22,7 @@ function rows_(context, name) {
       result[header] = value;
     });
     return result;
-  });
+  }).filter(function (row) { return row !== null; });
   context.cache[name] = rows;
   return rows;
 }
