@@ -6,7 +6,7 @@ import vm from 'node:vm';
 export const root = fileURLToPath(new URL('../', import.meta.url));
 export async function build() {
   const read = (file) => readFile(path.join(root, file), 'utf8');
-  const frontendFiles = ['lib/dom.js', 'lib/forms.js', 'services/api.js', 'components/dashboard.js', 'components/table.js',
+  const frontendFiles = ['lib/dom.js', 'lib/router.js', 'lib/forms.js', 'services/api.js', 'components/dashboard.js', 'components/table.js',
     'pages/classes.js', 'pages/students.js', 'pages/attendance.js', 'app.js'];
   const [html, css, frontend, demo, schemaText, manifestText] = await Promise.all([
     read('src/frontend/index.html'), read('src/frontend/styles.css'),

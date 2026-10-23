@@ -48,7 +48,7 @@ test('mobile navigation opens, changes route and closes with accurate aria state
   await expect(page.locator('#stat-students')).toHaveText('288');
   await page.getByRole('button', { name: 'Buka menu', exact: true }).click();
   await expect(page.locator('#menu-toggle')).toHaveAttribute('aria-expanded', 'true');
-  await page.locator('nav').getByRole('link', { name: 'Data Kelas' }).click();
+  await page.locator('nav').getByRole('button', { name: 'Data Kelas' }).click();
   await expect(page.locator('#module-title')).toHaveText('Data Kelas');
   await expect(page.locator('tbody tr')).toHaveCount(8);
   await expect(page.locator('#menu-toggle')).toHaveAttribute('aria-expanded', 'false');
@@ -57,7 +57,7 @@ test('mobile navigation opens, changes route and closes with accurate aria state
 
 test('planned value module discloses status and has no save controls', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('link', { name: 'Input Nilai', exact: true }).click();
+  await page.getByRole('button', { name: 'Input Nilai', exact: true }).click();
   await expect(page.locator('#module-title')).toHaveText('Nilai & Leger');
   await expect(page.locator('#module-description')).toContainText('Belum ada nilai yang disimpan');
   await expect(page.locator('#module-content')).toContainText('Fitur dalam pengembangan');
@@ -67,7 +67,7 @@ test('planned value module discloses status and has no save controls', async ({ 
 test('menu search navigates and missing menu gives honest empty state', async ({ page }) => {
   await page.goto('/');
   await page.locator('#search').fill('siswa');
-  await page.locator('#search-results').getByRole('link', { name: 'Data Siswa' }).click();
+  await page.locator('#search-results').getByRole('button', { name: 'Data Siswa' }).click();
   await expect(page.locator('tbody tr')).toHaveCount(25);
   await expect(page.locator('.pagination')).toContainText('288 siswa');
   await page.locator('#search').fill('tidakada');

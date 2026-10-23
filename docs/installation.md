@@ -1,5 +1,7 @@
 # Instalasi dan deployment pengembangan
 
+Untuk bug halaman putih saat klik menu HtmlService, ikuti [panduan navigasi dan pembaruan deployment](navigation-htmlservice.md). `clasp push` hanya mengubah source; deployment `/exec` yang dipin tetap memakai versi lama sampai pemilik memperbarui versi deployment secara manual. Script ID, Spreadsheet ID, dan skema tidak perlu diganti.
+
 ## Pembaruan tahap 2 pada proyek yang sudah berjalan
 
 Gunakan proyek Apps Script, Script ID di `.clasp.json`, dan `APP_SPREADSHEET_ID` yang sudah berhasil dipakai. Jangan membuat proyek baru, menyalin template di atas konfigurasi lokal yang ada, atau mengganti ID. Skema v1 tetap identik; **jangan menjalankan reset/initializer atau migrasi ulang**. Cadangkan spreadsheet sebelum uji tulis pada layanan nyata dan gunakan salinan pengembangan bila tersedia.

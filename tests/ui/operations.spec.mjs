@@ -108,10 +108,10 @@ test('teacher UI is read-only for master data and backend rejects a forged diffe
   await open(page, 'kelas', '?demo=teacher');
   await expect(page.locator('tbody tr')).toHaveCount(1);
   await expect(page.getByRole('button', { name: 'Tambah kelas', exact: true })).toHaveCount(0);
-  await page.locator('nav').getByRole('link', { name: 'Data Siswa', exact: true }).click();
+  await page.locator('nav').getByRole('button', { name: 'Data Siswa', exact: true }).click();
   await expect(page.locator('.pagination')).toContainText('36 siswa');
   await expect(page.getByRole('button', { name: 'Tambah siswa', exact: true })).toHaveCount(0);
-  await page.locator('nav').getByRole('link', { name: 'Absensi Siswa', exact: true }).click();
+  await page.locator('nav').getByRole('button', { name: 'Absensi Siswa', exact: true }).click();
   await expect(page.getByLabel('Kelas absensi').locator('option')).toHaveCount(1);
   const code = await page.evaluate(async () => {
     try { await window.SIA.api.rpc('getAttendance', { classId: 'DEMO-K2', date: '2026-10-23' }); }
@@ -161,11 +161,11 @@ test('unsaved attendance can cancel navigation then leave after confirmation', a
   await open(page, 'absensi');
   await page.getByLabel('Status Siswa Contoh 001', { exact: true }).selectOption('A');
   page.once('dialog', (dialog) => dialog.dismiss());
-  await page.locator('nav').getByRole('link', { name: 'Data Kelas', exact: true }).click();
+  await page.locator('nav').getByRole('button', { name: 'Data Kelas', exact: true }).click();
   await expect(page).toHaveURL(/#absensi$/);
   await expect(page.locator('#module-title')).toHaveText('Absensi Siswa');
   page.once('dialog', (dialog) => dialog.accept());
-  await page.locator('nav').getByRole('link', { name: 'Data Kelas', exact: true }).click();
+  await page.locator('nav').getByRole('button', { name: 'Data Kelas', exact: true }).click();
   await expect(page.locator('#module-title')).toHaveText('Data Kelas');
 });
 
@@ -177,13 +177,13 @@ test('mobile navigation reaches operational forms and planned pages without page
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   await page.screenshot({ path: testInfo.outputPath('kelas-mobile.png'), fullPage: true });
   await page.getByRole('button', { name: 'Buka menu', exact: true }).click();
-  await page.locator('nav').getByRole('link', { name: 'Absensi Siswa', exact: true }).click();
+  await page.locator('nav').getByRole('button', { name: 'Absensi Siswa', exact: true }).click();
   await expect(page.locator('.attendance-caption')).toContainText('36 siswa aktif');
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   await page.screenshot({ path: testInfo.outputPath('absensi-mobile.png'), fullPage: true });
   for (const label of ['Nilai & Leger', 'Jurnal Mengajar', 'Akun Guru', 'Laporan Kehadiran']) {
     await page.getByRole('button', { name: 'Buka menu', exact: true }).click();
-    await page.locator('nav').getByRole('link', { name: label, exact: true }).click();
+    await page.locator('nav').getByRole('button', { name: label, exact: true }).click();
     await expect(page.locator('#module-content')).toHaveText('Fitur dalam pengembangan');
   }
 });

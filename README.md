@@ -2,6 +2,8 @@
 
 Aplikasi berbahasa Indonesia berbasis **Google Apps Script HTML Service dan Google Sheets**, dengan build untuk clasp. Dashboard mengikuti `docs/dashboard-reference.jpeg`: sidebar hijau pastel, banner peach, kartu statistik pastel, grafik batang/donat, dan tampilan responsif.
 
+Navigasi memakai SPA dengan state di memori agar menu tetap berada dalam iframe HtmlService tanpa mengubah URL panel. Audit, regresi iframe, serta petunjuk memperbarui deployment yang sudah ada tersedia pada [perbaikan navigasi HtmlService](docs/navigation-htmlservice.md).
+
 Modul yang telah diimplementasikan dan diuji lokal:
 
 - **Data Kelas:** baca, pencarian/filter, tambah, edit, nonaktif. Mutasi hanya Admin Kepala Sekolah; Guru hanya melihat kelas wali/penugasan aktif.
