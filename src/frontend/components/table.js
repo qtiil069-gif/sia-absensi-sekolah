@@ -17,7 +17,12 @@
     const body = element('tbody');
     rows.forEach((row) => {
       const tr = element('tr');
-      row.forEach((value) => tr.append(element('td', String(value))));
+      row.forEach((value) => {
+        const cell = element('td');
+        if (value instanceof Node) cell.append(value);
+        else cell.textContent = String(value);
+        tr.append(cell);
+      });
       body.append(tr);
     });
     root.append(head, body);

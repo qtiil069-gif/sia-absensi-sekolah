@@ -1,6 +1,6 @@
-# Rancangan Google Sheets — skema v1
+# Rancangan Google Sheets — skema v1 (tetap pada tahap 2)
 
-Sumber kebenaran struktur adalah [`database/schema.json`](../database/schema.json). Build menghasilkan `00_Schema.gs` untuk inisialisasi dan validasi baca. Satu spreadsheet menyimpan satu sekolah. Nama tab dan urutan header harus persis; jangan menambah kolom di tengah tanpa merencanakan versi skema berikutnya.
+Sumber kebenaran struktur adalah [`database/schema.json`](../database/schema.json). Build menghasilkan `00_Schema.gs` untuk inisialisasi dan validasi baca. Tahap 2 tidak mengubah nama tab, header, urutan kolom, atau versi. Tidak perlu menjalankan initializer ulang atau migrasi. Satu spreadsheet menyimpan satu sekolah. Nama tab dan urutan header harus persis; jangan menambah kolom di tengah tanpa merencanakan versi skema berikutnya.
 
 ## Tab dan relasi
 
@@ -55,7 +55,7 @@ erDiagram
 - `Penilaian.jenis`: rancangan tugas, ulangan, ujian; `bobot > 0`, `nilai_maks > 0`, `0 <= Nilai.nilai <= nilai_maks`. Unik per `(assessment_id, student_id)`. Rumus leger dan kebijakan nilai kosong belum diimplementasikan.
 - `catatan`, `materi`, nama: teks biasa. Penulisan nanti harus mencegah formula injection Sheets dan memvalidasi panjang, kepemilikan, serta tipe pada server.
 
-**Sheets bukan database relasional dan belum menegakkan semua aturan di atas.** Saat ini pembaca memvalidasi header, akun aktif/role, cakupan kelas, tanggal input, status absensi, ID sesi duplikat, dan pasangan siswa-sesi duplikat untuk pekan/cakupan yang dibaca. Foreign key, semua keunikan global, periode semester, dan aturan mutasi masih harus diimplementasikan pada layanan tulis beserta pengujian. Tidak ada write RPC atau audit perubahan otomatis saat ini.
+**Sheets bukan database relasional.** Tahap 2 memvalidasi referensi tahun/wali/kelas/mapel pada mutasi, NIS unik termasuk siswa nonaktif, nama kelas unik per tahun, roster, sesi dan pasangan siswa-sesi, header, role, dan revision. Penulisan master dan absensi dicatat pada AuditLog. Data lama/manual tetap dapat melanggar skema; aplikasi menolak kondisi yang terdeteksi, bukan memperbaiki otomatis. Validasi semua relasi historis, periode semester, nilai, dan audit tahan manipulasi belum tersedia. Penjelasan mutasi dan penanganan kegagalan: [operasional.md](operasional.md).
 
 ## Definisi angka dashboard saat ini
 
@@ -73,4 +73,4 @@ erDiagram
 
 Pembacaan memakai `getValues()` per tab dan cache hanya di dalam satu request. Tidak ada cache identitas lintas pengguna. Untuk 100–500 siswa, master data kecil, tetapi catatan harian tumbuh (500 × 200 hari ≈ 100.000 baris per tahun sebelum sesi mapel). Pembaca saat ini masih memindai tab Absensi/Sesi/Jurnal penuh sebelum memfilter, dan belum diuji pada volume tersebut.
 
-Sebelum pemakaian nyata: ukur kuota dan waktu Apps Script dengan data representatif, partisi/arsip absensi per tahun bila diperlukan, batasi rentang baca, paginasi daftar, rancang backup/retensi, serta kebijakan akses file. Saat menambah mutasi, gunakan lock yang sesuai, idempotency key, validasi foreign key/role, dan audit pada server. Script lock pada initializer saat ini tidak menyelesaikan konkurensi absensi atau transaksi lintas tab.
+Sebelum pemakaian nyata: ukur kuota dan waktu Apps Script dengan data representatif, partisi/arsip absensi per tahun bila diperlukan, batasi rentang baca, paginasi daftar, rancang backup/retensi, serta kebijakan akses file. Mutasi tahap 2 menggunakan script lock, revision, penulisan bulk dan audit. Retry absensi dengan revision lama ditolak, bukan menghasilkan sesi baru. Kompensasi mencoba mengembalikan rentang bila penulisan gagal, tetapi tidak menjamin transaksi atomik lintas tab. Lock tidak menghalangi edit manual atau script lain. Pengujian lokal mencakup pagination dan penyimpanan roster 500 siswa; kuota/latensi layanan Google dan histori panjang belum diuji.

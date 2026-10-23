@@ -6,11 +6,12 @@ import vm from 'node:vm';
 export const root = fileURLToPath(new URL('../', import.meta.url));
 export async function build() {
   const read = (file) => readFile(path.join(root, file), 'utf8');
-  const frontendFiles = ['lib/dom.js', 'services/api.js', 'components/dashboard.js', 'components/table.js', 'app.js'];
+  const frontendFiles = ['lib/dom.js', 'lib/forms.js', 'services/api.js', 'components/dashboard.js', 'components/table.js',
+    'pages/classes.js', 'pages/students.js', 'pages/attendance.js', 'app.js'];
   const [html, css, frontend, demo, schemaText, manifestText] = await Promise.all([
     read('src/frontend/index.html'), read('src/frontend/styles.css'),
     Promise.all(frontendFiles.map((name) => read(`src/frontend/${name}`))),
-    read('dev/fixtures.js'), read('database/schema.json'), read('src/appsscript.json')
+    read('dev/demo-transport.js'), read('database/schema.json'), read('src/appsscript.json')
   ]);
   const js = frontend.join('\n');
   const manifest = JSON.parse(manifestText);

@@ -1,4 +1,4 @@
-/** Initial read-only role gate; real Workspace/deployment verification is still required. */
+/** Server-side role gate; deployment/Workspace integration still needs real-account tests. */
 function authorize_() {
   var email = Session.getActiveUser().getEmail();
   if (!email) fail_('UNAUTHENTICATED', 'Identitas Google tidak tersedia. Masuk dengan akun yang diizinkan.');
@@ -11,5 +11,8 @@ function authorize_() {
     fail_('FORBIDDEN', 'Akun belum terdaftar aktif atau role tidak diizinkan. Hubungi administrator.');
   }
   context.user = users[0];
+  if (rows_(context, 'Pengguna').filter(function (user) { return user.user_id === context.user.user_id; }).length !== 1) {
+    fail_('FORBIDDEN', 'ID akun tidak unik. Hubungi administrator.');
+  }
   return context;
 }

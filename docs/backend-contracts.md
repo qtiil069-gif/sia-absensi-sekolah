@@ -1,82 +1,100 @@
-# Kontrak backend v1 — baca saja
+# Kontrak backend — tahap 2
 
-Transport: `google.script.run.withSuccessHandler(...).withFailureHandler(...)`. Tidak ada REST endpoint atau autentikasi password. `doGet()` hanya merender shell HTML tanpa data sekolah. Data diambil melalui RPC setelah pemeriksaan server.
-
-Semua fungsi data mengembalikan salah satu bentuk berikut:
+Transport tetap `google.script.run`, bukan REST. `doGet()` hanya merender shell. Semua RPC data memvalidasi email dari `Session.getActiveUser()` terhadap akun aktif/unik di Pengguna, lalu memeriksa role dan cakupan. Helper berakhiran `_` tidak dapat dipanggil via RPC. Initializer tetap helper manual yang hanya dapat dijalankan pemilik/editor proyek.
 
 ```js
-{ ok: true, data: /* DTO di bawah */ }
-{ ok: false, error: { code: 'FORBIDDEN', message: 'Pesan aman dalam bahasa Indonesia' } }
+{ ok: true, data: /* DTO */ }
+{ ok: false, error: { code: 'FORBIDDEN', message: 'Pesan aman berbahasa Indonesia' } }
 ```
 
-Kegagalan transport/platform tetap dapat masuk `withFailureHandler`; frontend menanganinya terpisah. DTO hanya berisi tipe JSON, tidak pernah objek `Date` Sheets. Email pengguna aktif diambil dari `Session.getActiveUser().getEmail()`, lalu dicocokkan ke `Pengguna`. Input klien tidak menentukan identitas, role, atau ID pengguna otorisasi.
+Kegagalan platform/transport dapat masuk `withFailureHandler`. Error internal tidak mengirim ID spreadsheet, stack trace, atau pesan layanan mentah. Penulisan tidak diulang otomatis. Field payload yang tidak dikenal pada API operasional ditolak; role/pencatat tidak boleh dikirim klien.
 
-## `getBootstrap()`
+## API fondasi yang dipertahankan
 
-```ts
-type Bootstrap = {
-  user: { id: string; name: string; role: 'ADMIN_KEPALA_SEKOLAH' | 'GURU' };
-  school: { name: string; semester: string };
-  today: string;       // YYYY-MM-DD pada timezone proyek
-  timeZone: string;
-  classes: Class[];
-};
-type Class = { id: string; name: string; level: number | string; yearId: string };
-```
-
-Sekolah dan semester berasal dari Pengaturan; nilai default hanya label generik, bukan data sekolah rekaan. Daftar kelas tunduk pada role. Tabel pengguna dan email tidak dikirim ke browser.
-
-## `listClasses()`
-
-Mengembalikan `Class[]`, hanya kelas aktif. Admin membaca semua kelas aktif. Guru membaca kelas dengan `wali_user_id` dirinya atau PenugasanGuru aktif miliknya. Tidak ada endpoint publik untuk menulis role atau memberikan penugasan.
-
-## `listStudents({ classId?: string } = {})`
-
-```ts
-type Student = { id: string; name: string; nis: string; classIds: string[] };
-// data: Student[]
-```
-
-Hanya siswa aktif dengan keanggotaan aktif pada kelas yang diizinkan. `classIds` juga dibatasi cakupan pengguna. `classId: ''` berarti seluruh kelas dalam cakupan. Kelas di luar cakupan atau ID tidak dikenal menghasilkan `FORBIDDEN`, bukan daftar siswa kelas lain. NISN dan data sensitif tambahan tidak dikirim. Pagination belum ada; target master 100–500 siswa.
-
-## `getDashboard({ date?: string, classId?: string } = {})`
-
-`date` harus tanggal kalender valid `YYYY-MM-DD`, default tanggal server; `classId` memakai aturan yang sama seperti daftar siswa. Angka berasal dari Sheets, tanpa fallback demo.
-
-```ts
-type Dashboard = {
-  date: string;
-  scope: string;
-  stats: {
-    students: number; classes: number; attendanceRate: number | null;
-    sessions: number; journals: number;
-  };
-  composition: {
-    counts: { H: number; S: number; I: number; A: number };
-    total: number; rate: number | null;
-  };
-  weekly: { date: string; rate: number | null; total: number }[]; // 7 hari, Senin–Minggu
-};
-```
-
-Definisi penyebut dan histori: [database.md](database.md). Kedua tipe sesi saat ini digabung. Jangan menggunakan angka ini sebagai laporan siswa unik resmi sebelum definisi absensi harian diputuskan.
-
-## Kode error
-
-| Kode | Arti |
+| Fungsi | Kontrak |
 | --- | --- |
-| `UNAUTHENTICATED` | Google tidak menyediakan email aktif |
-| `FORBIDDEN` | Akun tidak aktif/tidak unik, role salah, atau kelas di luar cakupan |
-| `CONFIG_REQUIRED` | Script Property spreadsheet belum diisi |
-| `SCHEMA_MISMATCH` | Tab hilang atau urutan/header tidak sesuai skema |
-| `INVALID_ARGUMENT` | Tanggal atau tipe ID kelas salah |
-| `DATA_INVALID` | Data absensi duplikat/status tidak valid pada pekan yang dibaca |
-| `INTERNAL` | Kegagalan layanan internal/izin/kuota; pesan internal disembunyikan dari klien |
+| `getBootstrap()` | `{user:{id,name,role},school:{name,semester},today,timeZone,classes}`; tidak mengirim direktori email |
+| `getDashboard({date?,classId?})` | Bentuk stats/composition/weekly tetap seperti fondasi; tanggal ISO valid, 7 hari Senin–Minggu, rate null bila tanpa catatan |
+| `listClasses({q?,status?,yearId?,level?})` | `Class[]`, default aktif. q nama kelas; status active/inactive/all (dua terakhir admin); guru hanya kelas aktif wali/penugasan |
+| `listStudents({classId?})` | Array DTO lama `{id,name,nis,classIds}`, siswa/keanggotaan aktif sesuai cakupan. Dipertahankan untuk kompatibilitas, UI baru memakai queryStudents |
 
-Helper internal (`rows_`, `authorize_`, `initializeDatabase_`, dll.) berakhiran `_` sehingga tidak dapat dipanggil lewat `google.script.run`. Initializer dijalankan manual dari editor oleh pengembang dan tidak membuat akun atau data dummy.
+```ts
+type Class = {
+  id: string; name: string; level: number | string; yearId: string;
+  homeroomId: string; active: boolean; revision: string;
+};
+```
 
-## Kontrak yang masih direncanakan
+## Master kelas — khusus admin
 
-Belum ada RPC untuk menyimpan absensi, jurnal, nilai, membuat kelas/siswa, mengelola guru, atau mengekspor laporan. Jangan memanggil nama fungsi hipotetis dari klien. Tahap selanjutnya harus menetapkan DTO mutasi, validasi server, matriks izin admin/guru, lock/idempotensi, audit, dan pengujian negatif sebelum mengaktifkan formulir tulis.
+| Fungsi | Input | Output data |
+| --- | --- | --- |
+| `getRosterOptions()` | Tidak ada | `{years:[{id,name,active}],teachers:[{id,name}]}` tanpa email |
+| `createClass(input)` | `{name,level:number,yearId,homeroomId?:string}` | Class |
+| `updateClass(input)` | Field create + `{id,expectedRevision}` | Class |
+| `deactivateClass(input)` | `{id,expectedRevision}` | Class dengan active=false |
 
-Gerbang role awal sudah dapat diuji dengan mock. Ini **belum membuktikan autentikasi atau absensi aman untuk produksi**, terutama model berbagi spreadsheet, perilaku identitas pada deployment nyata, serta ketiadaan jalur mutasi yang teruji.
+Nama unik per tahun termasuk nonaktif. Tingkat integer 1–12, tahun ajaran harus ada, penetapan tahun baru harus aktif. Wali opsional dari akun aktif dengan role sah. Tidak ada hard delete atau endpoint mengubah role.
+
+## Master siswa
+
+`queryStudents({q?,classId?,status?,page?,pageSize?})` mengembalikan:
+
+```ts
+type Student = {
+  id: string; name: string; nis: string; active: boolean; classIds: string[];
+  nisn?: string; revision?: string; // hanya admin
+};
+type StudentPage = { items: Student[]; total: number; page: number; pageSize: number; pages: number };
+```
+
+q mencari nama/NIS. Default page=1, pageSize=25; pageSize hanya 10/25/50/100. page integer 1–10000; melewati halaman terakhir dikembalikan ke halaman terakhir. Status active/inactive/all, dua terakhir admin. Guru hanya menerima siswa aktif serta classIds dalam kelas aktif yang diizinkan; memilih kelas lain menghasilkan FORBIDDEN. Admin juga dapat menemukan siswa tanpa kelas dan kelas nonaktif.
+
+| Fungsi admin | Input | Output data |
+| --- | --- | --- |
+| `createStudent(input)` | `{name,nis,nisn?:string,classId}` | Student lengkap + revision |
+| `updateStudent(input)` | Field create + `{id,expectedRevision}` | Student lengkap + revision |
+| `deactivateStudent(input)` | `{id,expectedRevision}` | Student dengan active=false |
+
+NIS berupa teks unik tanpa membedakan kapital/trim, termasuk nonaktif. NISN kosong atau 10 digit. Kelas tujuan aktif. Pindah kelas menonaktifkan keanggotaan lama dan menambah keanggotaan; riwayat tidak dihapus. ID generated oleh server. classIds dan revision mencakup keanggotaan saat ini, sehingga perubahan roster invalidates form lama.
+
+## Absensi
+
+`getAttendanceOptions({classId})` → `{subjects:[{id,name}]}`, hanya mapel aktif. Guru mendapat mapel dengan penugasan aktif user+kelas+mapel yang cocok. Cakupan kelas diperiksa bahkan untuk request opsi.
+
+```ts
+type AttendanceKey = { classId: string; date: string; kind?: 'HARIAN'|'MAPEL'; subjectId?: string };
+type Attendance = {
+  classId: string; date: string; kind: 'HARIAN'|'MAPEL'; subjectId: string;
+  sessionId: string|null; revision: string;
+  entries: {studentId:string; name:string; nis:string; status:'H'|'S'|'I'|'A'|null; note:string}[];
+  summary: {H:number;S:number;I:number;A:number;pending:number};
+  retainedCount: number;
+};
+```
+
+- `getAttendance(key)` → Attendance. kind default HARIAN, subjectId kosong untuk harian, wajib untuk MAPEL. Tanggal ISO valid. Memakai script lock agar pembacaan revision tidak menyela penulisan absensi pada proyek yang sama.
+- `saveAttendance({...key,expectedRevision,entries:[{studentId,status,note?}]})` → Attendance terbaru. Wajib seluruh roster aktif, 1–500 siswa; tidak boleh duplikat, siswa asing, atau status kosong. Note maksimal 500 karakter. Roster berubah atau revision lama → CONFLICT sebelum penulisan.
+- Session identity unik kelas+tanggal+jenis+mapel. Satu sesi MAPEL per mapel per hari; belum mendukung slot jam. Duplikasi/jenis malformed pada data lama ditolak, tidak diperbaiki diam-diam.
+- Guru dapat membaca/menulis HARIAN pada kelas aktif wali/penugasan; MAPEL juga memerlukan penugasan mapel spesifik. Admin dapat mengelola semua kelas/mapel aktif. Semua edit memakai aturan cakupan yang sama, tidak bergantung pada role atau created_by kiriman frontend.
+- Server menentukan UUID baru, pencatat, timestamp, dan audit. Update menggunakan ID/baris yang sama, menyimpan catatan historis di luar roster tanpa mengirim nama/ID siswa historis itu ke form.
+
+## Versioning, lock, dan kegagalan tulis
+
+`revision` adalah hash SHA-256 snapshot; `expectedRevision` harus cocok pada edit/nonaktif/absensi. Token ini bukan pengganti autentikasi. Lock diperoleh sebelum validasi ulang akun dan data; timeout 10 detik menghasilkan BUSY. Semua rencana tulis memvalidasi header tab terkait, lalu menulis rentang baris secara bulk dan append AuditLog. Snapshot rentang digunakan untuk kompensasi bila setValues/flush gagal. SpreadsheetApp tidak menyediakan transaksi atomik lintas tab; lihat [operasional.md](operasional.md) untuk batas pemulihan.
+
+| Kode | Arti/tindakan |
+| --- | --- |
+| UNAUTHENTICATED / FORBIDDEN | Akun/role/cakupan tidak diizinkan; tidak ada fallback identitas klien |
+| CONFIG_REQUIRED | Script Property spreadsheet belum tersedia |
+| SCHEMA_MISMATCH / DATA_INVALID | Header atau data lama tidak valid/duplikat; administrator perlu memeriksa |
+| INVALID_ARGUMENT | Payload, teks, tanggal, NISN, ID, status, pagination, atau revision salah |
+| NOT_FOUND | Referensi master atau target tidak ditemukan |
+| DUPLICATE | Nama kelas-tahun atau NIS sudah dipakai |
+| CONFLICT | Snapshot data berubah; muat ulang dan rekonsiliasi |
+| BUSY | Lock sedang dipakai |
+| WRITE_FAILED | Penulisan gagal dan upaya kompensasi selesai tanpa error; muat ulang untuk memastikan keadaan |
+| RECOVERY_REQUIRED | Pemulihan belum terkonfirmasi; hentikan input dan minta pemeriksaan administrator |
+| INTERNAL | Kegagalan layanan lain atau pembacaan ulang; jangan menganggap data belum tersimpan |
+
+Semua teks divalidasi server; awalan formula (=,+,-,@ setelah trim) dan karakter kontrol ditolak. UI memasukkan data ke textContent/value, bukan innerHTML. Identitas Google, sharing file, kuota, dan pemulihan pada layanan sesungguhnya tetap memerlukan uji integrasi; tes lokal tidak membuktikan kesiapan produksi.

@@ -55,12 +55,12 @@ test('mobile navigation opens, changes route and closes with accurate aria state
   await expect(page.locator('#sidebar-backdrop')).toBeHidden();
 });
 
-test('planned modules disclose status and do not pretend to save attendance', async ({ page }) => {
+test('planned value module discloses status and has no save controls', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('link', { name: 'Mulai Absensi Kelas' }).click();
-  await expect(page.locator('#module-title')).toHaveText('Absensi Siswa');
-  await expect(page.locator('#module-description')).toContainText('Belum ada penyimpanan');
-  await expect(page.locator('#module-content')).toContainText('belum diimplementasikan');
+  await page.getByRole('link', { name: 'Input Nilai', exact: true }).click();
+  await expect(page.locator('#module-title')).toHaveText('Nilai & Leger');
+  await expect(page.locator('#module-description')).toContainText('Belum ada nilai yang disimpan');
+  await expect(page.locator('#module-content')).toContainText('Fitur dalam pengembangan');
   await expect(page.getByRole('button', { name: 'Simpan' })).toHaveCount(0);
 });
 
@@ -68,7 +68,8 @@ test('menu search navigates and missing menu gives honest empty state', async ({
   await page.goto('/');
   await page.locator('#search').fill('siswa');
   await page.locator('#search-results').getByRole('link', { name: 'Data Siswa' }).click();
-  await expect(page.locator('tbody tr')).toHaveCount(288);
+  await expect(page.locator('tbody tr')).toHaveCount(25);
+  await expect(page.locator('.pagination')).toContainText('288 siswa');
   await page.locator('#search').fill('tidakada');
   await expect(page.locator('#search-results')).toHaveText('Menu tidak ditemukan.');
 });
@@ -96,6 +97,7 @@ test('Google RPC path renders Sheets data and text remains inert against stored 
         user: { name: '<img src=x onerror="window.injected=true">', role: 'GURU' },
         school: { name: 'Sekolah Uji', semester: 'Semester Uji' }, today: '2026-10-23', classes: []
       } }); },
+      listClasses() { this.success({ ok: true, data: [] }); },
       getDashboard() { this.success({ ok: true, data: { date: '2026-10-23', scope: 'Kelas penugasan Anda',
         stats: { students: 0, classes: 0, attendanceRate: null, sessions: 0, journals: 0 },
         composition: { counts: {H:0,S:0,I:0,A:0}, total:0, rate:null }, weekly: []

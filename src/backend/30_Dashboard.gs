@@ -1,5 +1,6 @@
 function dashboard_(context, options) {
-  options = options || {};
+  if (options === undefined) options = {};
+  if (!options || Object.prototype.toString.call(options) !== '[object Object]') inputObject_(options, ['date', 'classId']);
   var date = dateInput_(options.date === undefined ? today_() : options.date);
   var classes = classes_(context);
   if (options.classId !== undefined && typeof options.classId !== 'string') {
@@ -9,6 +10,7 @@ function dashboard_(context, options) {
     classes = classes.filter(function (item) { return item.id === options.classId; });
     if (!classes.length) fail_('FORBIDDEN', 'Kelas tidak tersedia untuk akun ini.');
   }
+  inputObject_(options, ['date', 'classId']);
   var classIds = classes.map(function (item) { return item.id; });
   var students = students_(context, classes);
   var sessions = rows_(context, 'SesiAbsensi').filter(function (item) {

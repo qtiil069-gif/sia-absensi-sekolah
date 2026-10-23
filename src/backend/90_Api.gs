@@ -9,15 +9,25 @@ function include_(name) {
   return HtmlService.createHtmlOutputFromFile(name).getContent();
 }
 
-function respond_(callback) {
+function respond_(callback, write) {
+  var lock;
+  var locked = false;
   try {
+    if (write) {
+      lock = LockService.getScriptLock();
+      locked = lock.tryLock(10000);
+      if (!locked) fail_('BUSY', 'Layanan sedang menyimpan data lain. Tunggu sebentar lalu muat ulang.');
+    }
     return { ok: true, data: callback(authorize_()) };
   } catch (error) {
-    var known = ['CONFIG_REQUIRED', 'UNAUTHENTICATED', 'FORBIDDEN', 'SCHEMA_MISMATCH', 'DATA_INVALID', 'INVALID_ARGUMENT'];
+    var known = ['CONFIG_REQUIRED', 'UNAUTHENTICATED', 'FORBIDDEN', 'SCHEMA_MISMATCH', 'DATA_INVALID', 'INVALID_ARGUMENT',
+      'NOT_FOUND', 'DUPLICATE', 'CONFLICT', 'BUSY', 'WRITE_FAILED', 'RECOVERY_REQUIRED'];
     var safe = known.indexOf(error.code) !== -1;
     if (!safe) console.error('SIA backend: kegagalan layanan internal.');
     return { ok: false, error: { code: safe ? error.code : 'INTERNAL',
-      message: safe ? error.message : 'Layanan Sheets belum dapat dibaca. Hubungi administrator.' } };
+      message: safe ? error.message : 'Layanan Sheets mengalami gangguan. Hubungi administrator.' } };
+  } finally {
+    if (locked) lock.releaseLock();
   }
 }
 
@@ -35,13 +45,28 @@ function getDashboard(options) {
   return respond_(function (context) { return dashboard_(context, options); });
 }
 
-function listClasses() {
-  return respond_(function (context) { return classes_(context); });
+function listClasses(options) {
+  return respond_(function (context) { return queryClasses_(context, options); });
 }
+
+function getRosterOptions() { return respond_(rosterOptions_); }
+function createClass(input) { return respond_(function (context) { return saveClass_(context, input, false); }, true); }
+function updateClass(input) { return respond_(function (context) { return saveClass_(context, input, true); }, true); }
+function deactivateClass(input) { return respond_(function (context) { return deactivateClass_(context, input); }, true); }
+
+function queryStudents(options) { return respond_(function (context) { return queryStudents_(context, options); }); }
+function createStudent(input) { return respond_(function (context) { return saveStudent_(context, input, false); }, true); }
+function updateStudent(input) { return respond_(function (context) { return saveStudent_(context, input, true); }, true); }
+function deactivateStudent(input) { return respond_(function (context) { return deactivateStudent_(context, input); }, true); }
+
+function getAttendanceOptions(input) { return respond_(function (context) { return attendanceOptions_(context, input); }); }
+function getAttendance(input) { return respond_(function (context) { return getAttendance_(context, input); }, true); }
+function saveAttendance(input) { return respond_(function (context) { return saveAttendance_(context, input); }, true); }
 
 function listStudents(options) {
   return respond_(function (context) {
-    options = options || {};
+    if (options === undefined) options = {};
+    if (!options || Object.prototype.toString.call(options) !== '[object Object]') inputObject_(options, ['classId']);
     var classes = classes_(context);
     if (options.classId !== undefined && typeof options.classId !== 'string') {
       fail_('INVALID_ARGUMENT', 'ID kelas harus berupa teks.');
@@ -50,6 +75,7 @@ function listStudents(options) {
       classes = classes.filter(function (item) { return item.id === options.classId; });
       if (!classes.length) fail_('FORBIDDEN', 'Kelas tidak tersedia untuk akun ini.');
     }
+    inputObject_(options, ['classId']);
     return students_(context, classes);
   });
 }
