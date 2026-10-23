@@ -16,6 +16,15 @@
   };
   const state = { bootstrap: null, route: 'dashboard', request: 0, boot: 0, ready: false, guard: null, dirty: null };
   const pages = { kelas: window.SIA.pages.classes, siswa: window.SIA.pages.students, absensi: window.SIA.pages.attendance };
+  const router = window.SIA.createRouter({
+    routes: Object.keys(modules),
+    // An initial fragment is a read-only hint (also useful for local tests).
+    // Subsequent navigation never writes to window.location or browser history.
+    initialRoute: window.location.hash.slice(1),
+    onNavigate: loadRoute,
+    canNavigate: () => !state.guard || state.guard(),
+    onSameRoute: closeMenu
+  });
 
   function showError(error) {
     byId('error-message').textContent = error.message;
@@ -35,14 +44,9 @@
 
   async function loadRoute() {
     if (!state.ready) return;
-    const route = location.hash.slice(1) || 'dashboard';
-    if (route !== state.route && state.guard && !state.guard()) {
-      history.replaceState(null, '', '#' + state.route);
-      return;
-    }
     state.guard = null;
     state.dirty = null;
-    state.route = Object.hasOwn(modules, route) ? route : 'dashboard';
+    state.route = router.current();
     const current = state.route;
     const request = ++state.request;
     closeMenu();
@@ -51,11 +55,11 @@
     byId('module-panel').hidden = current === 'dashboard';
     byId('page-title').textContent = modules[current][0];
     document.title = `${modules[current][0]} · SIA Sekolah`;
-    document.querySelectorAll('.nav-item').forEach((link) => {
-      const active = link.hash === `#${current}`;
-      link.classList.toggle('active', active);
-      if (active) link.setAttribute('aria-current', 'page');
-      else link.removeAttribute('aria-current');
+    document.querySelectorAll('.nav-item').forEach((control) => {
+      const active = control.dataset.route === current;
+      control.classList.toggle('active', active);
+      if (active) control.setAttribute('aria-current', 'page');
+      else control.removeAttribute('aria-current');
     });
     byId('main').setAttribute('aria-busy', 'true');
     byId('class-filter').disabled = true;
@@ -142,15 +146,7 @@
   byId('retry').addEventListener('click', boot);
   byId('class-filter').addEventListener('change', loadRoute);
   byId('date-filter').addEventListener('change', loadRoute);
-  window.addEventListener('hashchange', loadRoute);
-  document.addEventListener('click', (event) => {
-    const link = event.target.closest('a[href^="#"]');
-    if (link && Object.hasOwn(modules, link.hash.slice(1))) {
-      event.preventDefault();
-      if (location.hash === link.hash) return;
-      location.hash = link.hash;
-    }
-  });
+  byId('skip-content').addEventListener('click', () => byId('main').focus());
   window.addEventListener('beforeunload', (event) => {
     if (state.dirty?.()) { event.preventDefault(); event.returnValue = ''; }
   });
@@ -162,10 +158,11 @@
     if (!query) return;
     Object.entries(modules).filter(([key, [label]]) => label.toLocaleLowerCase('id-ID').includes(query) &&
       (key !== 'guru' || state.bootstrap?.user.role === 'ADMIN_KEPALA_SEKOLAH')).forEach(([key, [label]]) => {
-      const link = element('a', label);
-      link.href = `#${key}`;
-      link.addEventListener('click', () => { results.hidden = true; byId('search').value = ''; });
-      results.append(link);
+      const control = element('button', label);
+      control.type = 'button';
+      control.dataset.route = key;
+      control.addEventListener('click', () => { results.hidden = true; byId('search').value = ''; });
+      results.append(control);
     });
     if (!results.children.length) results.append(element('p', 'Menu tidak ditemukan.'));
   });

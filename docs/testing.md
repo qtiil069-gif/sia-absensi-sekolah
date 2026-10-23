@@ -36,6 +36,8 @@ Login/integrasi Google, otorisasi akun sekolah nyata, serta push/deployment taha
 
 ## Checklist Google pada proyek yang sudah ada
 
+Tambahan regresi navigasi: [navigation-htmlservice.md](navigation-htmlservice.md). Suite browser kini juga menguji iframe lintas origin pada URL userCodeAppPanel dengan sandbox dan default `_top`, tanpa menulis URL/history atau membuka tab baru. Jumlah pada bagian hasil tahap 2 di atas adalah baseline sebelum perbaikan navigasi.
+
 1. Backup spreadsheet, pertahankan kedua ID dan manifest/kebijakan deployment yang sudah ditinjau. Skema v1 tidak berubah; jangan reset database.
 2. Gunakan clasp status untuk meninjau 16 file dist sebelum push yang dilakukan pengembang. Jangan kirim fixture, token, atau data pribadi ke GitHub/Apps Script source.
 3. Pada salinan spreadsheet pengembangan atau data nonpribadi yang disetujui, uji kelas baru/edit/nonaktif serta siswa baru/pindah/nonaktif. Periksa baris lama, foreign key, dan AuditLog tetap tersedia.
