@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <base target="_top">
+  <title>SIA Sekolah · Dashboard</title>
+  <!-- STYLES -->
+</head>
+<body>
+  <a class="skip-link" href="#main">Lewati ke konten</a>
+  <svg class="icon-library" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10H15v-7H9v7H3Z"/></symbol>
+    <symbol id="i-class" viewBox="0 0 24 24"><path d="M3 4h18v13H3zM7 21l2-4m8 4-2-4M7 8h10M7 12h6"/></symbol>
+    <symbol id="i-student" viewBox="0 0 24 24"><path d="m2 7 10-4 10 4-10 4Zm4 2v7c4 3 8 3 12 0V9M22 7v9"/></symbol>
+    <symbol id="i-calendar" viewBox="0 0 24 24"><path d="M4 5h16v16H4zM8 2v6m8-6v6M4 10h16m-12 5 3 3 5-5"/></symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 3v18h17M8 17v-5m5 5V8m5 9V4"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M5 3h15v18H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Zm2 0v18m4-13h5m-5 4h5"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M2 21v-3a7 7 0 0 1 14 0v3m1-17a3 3 0 0 1 0 6m2 4a6 6 0 0 1 3 5v2"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10" cy="10" r="6"/><path d="m15 15 6 6"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M4 12h16m-6-6 6 6-6 6"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 1v3m0 16v3M1 12h3m16 0h3M4 4l2 2m12 12 2 2M4 20l2-2M18 6l2-2"/></symbol>
+  </svg>
+  <button class="sidebar-backdrop" id="sidebar-backdrop" aria-label="Tutup menu" hidden></button>
+  <aside class="sidebar" id="sidebar" aria-label="Menu utama">
+    <a class="brand" href="#dashboard"><span class="brand-mark"><svg class="icon"><use href="#i-student"/></svg></span><span>SIA<span class="brand-sub">SEKOLAH</span></span></a>
+    <div class="profile"><div class="avatar" aria-hidden="true">☺<span></span></div><strong id="profile-name">Selamat datang!</strong><span id="profile-role">Sistem Informasi Absensi</span></div>
+    <p class="nav-caption">RUANG SEKOLAH</p>
+    <nav>
+      <a href="#dashboard" class="nav-item active" aria-current="page"><span class="nav-icon mint"><svg class="icon"><use href="#i-home"/></svg></span>Dashboard</a>
+      <a href="#kelas" class="nav-item"><span class="nav-icon peach"><svg class="icon"><use href="#i-class"/></svg></span>Data Kelas</a>
+      <a href="#siswa" class="nav-item"><span class="nav-icon yellow"><svg class="icon"><use href="#i-student"/></svg></span>Data Siswa</a>
+      <a href="#absensi" class="nav-item"><span class="nav-icon blue"><svg class="icon"><use href="#i-calendar"/></svg></span>Absensi Siswa</a>
+      <a href="#nilai" class="nav-item"><span class="nav-icon lavender"><svg class="icon"><use href="#i-chart"/></svg></span>Nilai &amp; Leger</a>
+      <a href="#jurnal" class="nav-item"><span class="nav-icon mint"><svg class="icon"><use href="#i-book"/></svg></span>Jurnal Mengajar</a>
+      <a href="#guru" class="nav-item" id="teacher-nav"><span class="nav-icon peach"><svg class="icon"><use href="#i-users"/></svg></span>Akun Guru</a>
+      <a href="#laporan" class="nav-item"><span class="nav-icon yellow"><svg class="icon"><use href="#i-chart"/></svg></span>Laporan Kehadiran</a>
+    </nav>
+    <div class="sidebar-note"><span class="note-icon">✦</span><strong>Setiap hari berarti.</strong><p>Catat kehadiran, dampingi<br>perjalanan belajar mereka.</p><a class="button coral small" href="#jurnal">Buka jurnal <span aria-hidden="true">↗</span></a></div>
+    <div class="sidebar-footer">SIA Sekolah <span>·</span> Fondasi v0.1</div>
+  </aside>
+  <div class="workspace">
+    <header class="topbar">
+      <div class="page-heading"><button id="menu-toggle" class="icon-button mobile-menu" aria-label="Buka menu" aria-expanded="false" aria-controls="sidebar"><svg class="icon"><use href="#i-menu"/></svg></button><div><p class="eyebrow">RUANG KERJA SEKOLAH</p><h1 id="page-title">Dashboard</h1></div><span id="mode-badge" class="mode-badge">MEMUAT</span></div>
+      <label class="search-box"><svg class="icon"><use href="#i-search"/></svg><input id="search" type="search" aria-label="Cari menu sekolah" placeholder="Cari menu sekolah…"><kbd>/</kbd></label>
+      <span class="topbar-monogram" aria-hidden="true">S</span>
+    </header>
+    <div id="search-results" class="search-results" aria-live="polite" hidden></div>
+    <main id="main" tabindex="-1">
+      <div id="notice" class="notice" role="status">Menyiapkan ruang sekolah Anda…</div>
+      <div id="error-panel" class="error-panel" role="alert" hidden><strong>Data belum dapat ditampilkan</strong><p id="error-message"></p><button id="retry" class="button light">Coba lagi</button></div>
+      <section id="dashboard-panel" aria-label="Ringkasan sekolah" hidden>
+        <div class="welcome-banner">
+          <div class="welcome-copy"><span class="semester-pill"><svg class="icon"><use href="#i-sun"/></svg><span id="semester-label">Semester aktif</span></span><h2>Selamat mengajar,<br><span id="greeting-name">Bapak &amp; Ibu Guru!</span> <span class="greeting-sun" aria-hidden="true">☀</span></h2><p>Hari baru, kesempatan baru untuk tumbuh bersama.<br> Kelola kegiatan sekolah dengan lebih hangat dan terarah.</p><div class="banner-actions"><a class="button coral" href="#absensi"><span aria-hidden="true">▷</span> Mulai Absensi Kelas</a><a class="button light" href="#nilai"><svg class="icon"><use href="#i-chart"/></svg> Input Nilai</a></div></div>
+          <svg class="welcome-art" viewBox="0 0 260 245" role="img" aria-label="Ilustrasi guru dengan buku dan tanaman">
+            <circle cx="132" cy="114" r="99" fill="#ffeae0"/><circle cx="208" cy="36" r="7" fill="#eab061"/><path d="m38 38 3 8 8 3-8 3-3 8-3-8-8-3 8-3Z" fill="#f7be85"/><path d="M47 226c0-42 32-69 72-69s73 27 73 69" fill="#75a99c"/><path d="M84 169c20 20 48 22 69-1l-18-10h-32Z" fill="#faf6ec"/><path d="M79 99c-4-72 87-76 88-7l-5 40H83Z" fill="#765441"/><ellipse cx="122" cy="112" rx="39" ry="46" fill="#f2c7a8"/><path d="M81 102c4-32 20-26 34-43 15 18 33 22 48 29-3-40-68-53-82-10Z" fill="#765441"/><path d="M101 110h6m29 0h6" stroke="#624b3c" stroke-width="4" stroke-linecap="round"/><path d="M113 129q10 10 20-1" fill="none" stroke="#a76850" stroke-width="3" stroke-linecap="round"/><circle cx="98" cy="121" r="7" fill="#eba996" opacity=".6"/><circle cx="145" cy="121" r="7" fill="#eba996" opacity=".6"/><path d="m88 192 39 8 37-9v45l-37 7-39-8Z" fill="#f8e6b5"/><path d="M127 201v42" stroke="#dabd83" stroke-width="2"/><path d="M69 211q9-25 30 4m59-1q20-25 30-1" fill="none" stroke="#f2c7a8" stroke-width="16" stroke-linecap="round"/><path d="M216 202v-57" stroke="#558a68" stroke-width="4"/><ellipse cx="206" cy="159" rx="11" ry="23" transform="rotate(-30 206 159)" fill="#80a989"/><ellipse cx="224" cy="144" rx="11" ry="25" transform="rotate(22 224 144)" fill="#568e71"/><path d="M196 195h43l-7 36h-28Z" fill="#ebcfaa"/><path d="M21 233h227" stroke="#dba58f" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="section-toolbar"><div><h2>Sekolah dalam angka</h2><p id="data-scope">Ringkasan kegiatan hari ini</p></div><div class="filters"><label for="class-filter" class="sr-only">Filter kelas</label><select id="class-filter"><option value="">Semua kelas</option></select><label class="date-filter"><svg class="icon"><use href="#i-calendar"/></svg><input id="date-filter" type="date" aria-label="Tanggal ringkasan" required></label></div></div>
+        <div class="stats-grid" id="stats" aria-label="Statistik hari terpilih">
+          <article class="stat-card mint"><span class="stat-icon"><svg class="icon"><use href="#i-student"/></svg></span><p>Total Siswa</p><strong id="stat-students">—</strong><span>Siswa aktif terdaftar</span></article>
+          <article class="stat-card peach"><span class="stat-icon"><svg class="icon"><use href="#i-class"/></svg></span><p>Data Kelas</p><strong id="stat-classes">—</strong><span>Rombongan belajar</span></article>
+          <article class="stat-card yellow"><span class="stat-icon"><svg class="icon"><use href="#i-calendar"/></svg></span><p>Kehadiran</p><strong id="stat-attendance">—</strong><span id="stat-sessions">Belum ada sesi</span></article>
+          <article class="stat-card blue"><span class="stat-icon"><svg class="icon"><use href="#i-book"/></svg></span><p>Jurnal Mengajar</p><strong id="stat-journals">—</strong><span>Pertemuan tercatat</span></article>
+        </div>
+        <div class="charts-grid">
+          <article class="chart-card"><div class="card-heading"><div><h2>Grafik Kehadiran</h2><p>Persentase hadir per hari · pekan terpilih</p></div><span class="chart-tag">7 hari</span></div><div class="bar-chart" id="weekly-chart" aria-label="Grafik kehadiran mingguan"></div><p class="chart-footnote">Persentase dari catatan absensi yang sudah diisi.</p></article>
+          <article class="chart-card"><div class="card-heading"><div><h2>Komposisi Kehadiran</h2><p>Rekap status pada tanggal terpilih</p></div><svg class="icon muted"><use href="#i-chart"/></svg></div><div class="composition-layout"><div class="donut" id="donut" role="img" aria-label="Belum ada data"><div class="donut-center"><strong id="donut-rate">—</strong><span>Hadir</span></div></div><ul class="legend" id="composition-legend"></ul></div><p class="chart-footnote" id="composition-note">Belum ada catatan.</p></article>
+        </div>
+        <div class="development-note"><span aria-hidden="true">✧</span><p><strong>Ruang tumbuh sekolah Anda.</strong> Fondasi awal aplikasi. Modul pencatatan akan hadir bertahap.</p><span class="version-tag">v0.1</span></div>
+      </section>
+      <section id="module-panel" class="module-panel" hidden><p class="eyebrow">RUANG SEKOLAH</p><h2 id="module-title"></h2><p id="module-description"></p><div id="module-content"></div><a class="button light" href="#dashboard">Kembali ke dashboard <span aria-hidden="true">↗</span></a></section>
+    </main>
+    <footer class="page-footer"><span id="school-name">SIA Sekolah</span><span>Dibuat untuk hari belajar yang lebih baik <span aria-hidden="true">✦</span></span></footer>
+  </div>
+  <!-- SCRIPTS -->
+</body>
+</html>
