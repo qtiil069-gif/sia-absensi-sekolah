@@ -38,6 +38,8 @@ Login/integrasi Google, otorisasi akun sekolah nyata, serta push/deployment taha
 
 Tambahan regresi navigasi: [navigation-htmlservice.md](navigation-htmlservice.md). Suite browser kini juga menguji iframe lintas origin pada URL userCodeAppPanel dengan sandbox dan default `_top`, tanpa menulis URL/history atau membuka tab baru. Jumlah pada bagian hasil tahap 2 di atas adalah baseline sebelum perbaikan navigasi.
 
+Regresi pencarian siswa: suite iframe mengaktifkan MiddleClickAutoscroll Chromium agar perilaku klik tengah tidak berbeda diam-diam antar-OS. Tes menutup autoscroll dengan Escape sebelum klik pencarian, mempertahankan assertion `288 siswa`, memeriksa route/loading, 25 baris, dan payload/total RPC. Tes tambahan mengendalikan respons asinkron dengan promise untuk membuktikan pagination muncul setelah data siap. Kegagalan asli berhasil direproduksi sebelum koreksi dengan fitur autoscroll aktif; lihat rincian pada panduan navigasi.
+
 1. Backup spreadsheet, pertahankan kedua ID dan manifest/kebijakan deployment yang sudah ditinjau. Skema v1 tidak berubah; jangan reset database.
 2. Gunakan clasp status untuk meninjau 16 file dist sebelum push yang dilakukan pengembang. Jangan kirim fixture, token, atau data pribadi ke GitHub/Apps Script source.
 3. Pada salinan spreadsheet pengembangan atau data nonpribadi yang disetujui, uji kelas baru/edit/nonaktif serta siswa baru/pindah/nonaktif. Periksa baris lama, foreign key, dan AuditLog tetap tersedia.

@@ -2,21 +2,32 @@ import { test, expect } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { root } from '../../scripts/build.mjs';
+import playwrightConfig from '../../playwright.config.mjs';
+
+// Windows Chromium enables native middle-click autoscroll by default. Exercise
+// that behavior on every platform instead of allowing this regression to hide
+// on Linux, where the feature is normally disabled.
+test.use({ launchOptions: { ...playwrightConfig.use.launchOptions,
+  args: [...(playwrightConfig.use.launchOptions.args || []), '--enable-blink-features=MiddleClickAutoscroll'] } });
 
 const shellUrl = 'https://sia-shell.test/exec';
 const panelUrl = 'https://script.googleusercontent.com/userCodeAppPanel?createOAuthDialog=true';
 
-async function htmlService(page, request, role = 'admin') {
+async function htmlService(page, request, role = 'admin', { beforeRpc = () => {} } = {}) {
   const [index, styles, scripts] = await Promise.all(['Index.html', 'Styles.html', 'Scripts.html']
     .map((name) => readFile(`${root}dist/${name}`, 'utf8')));
   const session = randomUUID();
+  const rpcCalls = [];
   // google.script.run bridges to the same .gs backend with in-memory Sheets.
   // Nothing in this fixture is included in dist or sent to Google.
   await page.exposeBinding('siaIframeRpc', async (_, method, args) => {
+    await beforeRpc(method, args);
     const response = await request.post('http://127.0.0.1:4174/__demo/rpc', {
       data: { session, role, method, args }
     });
-    return response.json();
+    const result = await response.json();
+    rpcCalls.push({ method, args, result });
+    return result;
   });
   const shim = `<script>
     window.__navigationProbe = { documentId: Math.random(), hashChanges: 0, historyCalls: 0 };
@@ -61,7 +72,7 @@ async function htmlService(page, request, role = 'admin') {
     expect(errors).toEqual([]);
     expect(await frame.evaluate(() => window.__navigationProbe)).toEqual({ documentId, hashChanges: 0, historyCalls: 0 });
   };
-  return { ui, frame, assertStayed };
+  return { ui, frame, assertStayed, rpcCalls };
 }
 
 test('all sidebar routes render within the same cross-origin HtmlService iframe', async ({ page, request }) => {
@@ -81,7 +92,7 @@ test('all sidebar routes render within the same cross-origin HtmlService iframe'
 });
 
 test('CTAs, search, brand, nested SVG, keyboard and modified clicks cannot navigate out of the frame', async ({ page, request }) => {
-  const { ui, assertStayed } = await htmlService(page, request);
+  const { ui, assertStayed, rpcCalls } = await htmlService(page, request);
   await ui.getByRole('button', { name: 'Mulai Absensi Kelas' }).click();
   await expect(ui.locator('.attendance-caption')).toContainText('36 siswa aktif');
   await ui.getByRole('button', { name: 'Kembali ke dashboard' }).click();
@@ -99,9 +110,22 @@ test('CTAs, search, brand, nested SVG, keyboard and modified clicks cannot navig
   await ui.locator('nav [data-route="kelas"]').click({ modifiers: ['Control'] });
   await expect(ui.locator('#module-title')).toHaveText('Data Kelas');
   await ui.locator('nav [data-route="siswa"]').click({ button: 'middle' });
+  await assertStayed();
+  // Middle click can start native autoscroll. Otherwise the next left click
+  // only dismisses that browser mode and never activates the search result.
+  await page.keyboard.press('Escape');
+  await expect(ui.locator('#page-title')).toHaveText('Data Kelas');
+  const previousQueries = rpcCalls.filter((call) => call.method === 'queryStudents').length;
   await ui.locator('#search').fill('siswa');
   await ui.locator('#search-results').getByRole('button', { name: 'Data Siswa', exact: true }).click();
+  await expect(ui.locator('#page-title')).toHaveText('Data Siswa');
+  await expect(ui.locator('#main')).toHaveAttribute('aria-busy', 'false');
   await expect(ui.locator('.pagination')).toContainText('288 siswa');
+  await expect(ui.locator('#module-content tbody tr')).toHaveCount(25);
+  const queries = rpcCalls.filter((call) => call.method === 'queryStudents');
+  expect(queries).toHaveLength(previousQueries + 1);
+  expect(queries.at(-1)).toMatchObject({ args: { q: '', page: 1, pageSize: 25 },
+    result: { ok: true, data: { total: 288, page: 1, pageSize: 25, pages: 12 } } });
   await ui.getByRole('button', { name: 'Buka jurnal' }).click();
   await expect(ui.locator('#module-title')).toHaveText('Jurnal Mengajar');
   await ui.locator('#skip-content').focus();
@@ -109,6 +133,38 @@ test('CTAs, search, brand, nested SVG, keyboard and modified clicks cannot navig
   await expect(ui.locator('#main')).toBeFocused();
   await expect(ui.locator('[data-route][href], [data-route][target]')).toHaveCount(0);
   await assertStayed();
+});
+
+test('menu search renders student pagination after the asynchronous RPC completes', async ({ page, request }) => {
+  let release;
+  let started;
+  const held = new Promise((resolve) => { release = resolve; });
+  const querying = new Promise((resolve) => { started = resolve; });
+  const { ui, assertStayed, rpcCalls } = await htmlService(page, request, 'admin', {
+    beforeRpc: async (method) => {
+      if (method === 'queryStudents') { started(); await held; }
+    }
+  });
+  try {
+    await ui.locator('#search').fill('siswa');
+    await ui.locator('#search-results').getByRole('button', { name: 'Data Siswa', exact: true }).click();
+    await querying;
+    await expect(ui.locator('#page-title')).toHaveText('Data Siswa');
+    await expect(ui.locator('#main')).toHaveAttribute('aria-busy', 'true');
+    await expect(ui.locator('.pagination')).toHaveCount(1);
+    await expect(ui.locator('.pagination')).toBeEmpty();
+    release();
+    await expect(ui.locator('#main')).toHaveAttribute('aria-busy', 'false');
+    await expect(ui.locator('.pagination')).toContainText('288 siswa');
+    await expect(ui.locator('.pagination')).toContainText('Halaman 1 dari 12');
+    await expect(ui.locator('#module-content tbody tr')).toHaveCount(25);
+    await expect(ui.getByLabel('Cari siswa', { exact: true })).toHaveValue('');
+    expect(rpcCalls.find((call) => call.method === 'queryStudents')).toMatchObject({
+      args: { q: '', classId: '', status: 'active', page: 1, pageSize: 25 },
+      result: { ok: true, data: { total: 288 } }
+    });
+    await assertStayed();
+  } finally { release(); }
 });
 
 test('class/student writes and attendance save still work through RPC inside the iframe', async ({ page, request }) => {

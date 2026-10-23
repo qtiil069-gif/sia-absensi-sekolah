@@ -47,3 +47,17 @@ Status harus hanya memilih 16 file dist; router dikemas ke Scripts.html. Tidak p
 `clasp push` memperbarui source, **bukan versi deployment `/exec` yang sudah dipin**. Untuk menguji tanpa mengganti deployment produksi, gunakan test deployment `/dev` proyek yang sama sesuai izin Google. Setelah review dan pengujian akun nyata, pemilik dapat memperbarui deployment yang ada secara manual melalui **Deploy → Manage deployments → Edit → Version: New version → Deploy**. Memperbarui deployment yang sama mempertahankan URL Web App; jangan membuka URL userCodeAppPanel secara langsung sebagai URL aplikasi. Tidak ada langkah push/deploy Google yang dijalankan otomatis pada pekerjaan ini.
 
 Pada pengujian Google, klik semua menu dari URL Web App, periksa judul/menu aktif dan CRUD dengan data pengembangan, batalkan perpindahan saat absensi belum disimpan, lalu ulangi sebagai Guru dan pada mobile. Pastikan URL aplikasi tidak berubah menjadi URL panel. Tes lokal tidak menggantikan verifikasi integrasi Google ini.
+
+## Regresi pencarian siswa setelah merge navigasi
+
+Basis perbaikan pengujian: `main` commit `c248afa`. Kegagalan pada skenario CTA/search muncul saat assertion `.pagination` mengharapkan `288 siswa` setelah klik hasil pencarian. Selector pagination cocok dengan `pages/students.js` dan fixture admin tetap memiliki 288 siswa aktif.
+
+Penyebab berhasil direproduksi dengan mengaktifkan fitur Chromium `MiddleClickAutoscroll`. Skenario sebelumnya mengklik menu dengan tombol tengah, lalu langsung mencari dan mengeklik Data Siswa. Pada browser yang mengaktifkan autoscroll (umumnya Chromium Windows), klik berikutnya hanya menghentikan mode autoscroll dan tidak diteruskan sebagai aktivasi hasil pencarian. Screenshot kegagalan masih menunjukkan Data Kelas dengan hasil pencarian terbuka. Route Data Siswa belum aktif, sehingga elemen pagination memang belum dirender. Assertion yang sama gagal dalam 5 detik dengan `element(s) not found`; ini tidak memerlukan perubahan data fixture atau selector.
+
+Tes kini mengakhiri mode native tersebut dengan Escape setelah memverifikasi klik tengah tetap berada dalam iframe. Sesudah klik pencarian, tes memeriksa judul Data Siswa, `aria-busy=false`, assertion **288 siswa** yang sama, serta 25 baris data. Log RPC fixture memastikan request baru `queryStudents` menerima `q: ''`, page 1 dan pageSize 25, lalu mengembalikan total 288 dan 12 halaman. Pencarian menu dan filter data siswa tetap terpisah.
+
+Fitur autoscroll diaktifkan secara eksplisit **hanya pada browser suite iframe** agar regresi dapat diuji lintas OS. Tambahan tes menahan respons RPC menggunakan promise yang dikendalikan tes, memeriksa keadaan loading/pagination kosong, lalu melepas respons dan memverifikasi pagination/roster lengkap. Tidak ada sleep, kenaikan timeout global, retry untuk menutupi kegagalan, atau penghapusan assertion.
+
+Perubahan ini hanya pada pengujian dan dokumentasi. Router, UI, desain, backend CRUD, role, manifest, ID, serta skema produksi tetap identik dengan basis main. Tidak ada deployment atau perubahan Google Sheets nyata.
+
+Validasi akhir 23 Oktober 2026: suite iframe **5/5 lulus** dengan autoscroll aktif; `npm run check` **63 backend/build + 25 browser lulus**, 0 gagal/dilewati; `npm run build` terpisah berhasil (16 file paket Apps Script). Kegagalan asli terlebih dahulu direproduksi pada Chromium dengan autoscroll aktif sebelum koreksi urutan interaksi diterapkan.
