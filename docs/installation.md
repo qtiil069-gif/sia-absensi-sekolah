@@ -1,5 +1,12 @@
 # Instalasi dan deployment pengembangan
 
+## Pembaruan Tahap 3
+
+Ikuti [panduan Tahap 3](stage-3.md) untuk perubahan terbaru. Setelah build/check dan peninjauan source, push hanya ke proyek yang sudah terhubung dengan ID yang sama. Pada deployment pengembangan, Admin membuka Pengaturan Sekolah → Siapkan database Tahap 3 untuk membuat backup terverifikasi dan menambah ProfilSiswa. Jangan reset, menghapus tab, atau menjalankan initializer untuk upgrade. Source tetap memakai scopes yang sudah ada; foto/logo kecil disimpan di Sheets tanpa file Drive publik.
+
+Bagian tahap 2 di bawah adalah petunjuk historis. Pernyataan skema tidak berubah/tidak perlu migrasi hanya berlaku untuk tahap 2; tahap 3 menggunakan migrasi v1 → v2 di atas.
+
+
 Untuk bug halaman putih saat klik menu HtmlService, ikuti [panduan navigasi dan pembaruan deployment](navigation-htmlservice.md). `clasp push` hanya mengubah source; deployment `/exec` yang dipin tetap memakai versi lama sampai pemilik memperbarui versi deployment secara manual. Script ID, Spreadsheet ID, dan skema tidak perlu diganti.
 
 ## Pembaruan tahap 2 pada proyek yang sudah berjalan

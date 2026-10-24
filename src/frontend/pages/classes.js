@@ -12,7 +12,7 @@
     const status = field('Status kelas', { options: [['active', 'Aktif'], ['inactive', 'Nonaktif'], ['all', 'Semua status']] });
     if (admin) tools.append(status.wrap);
     host.append(tools);
-    const message = feedback(host);
+    const message = feedback(host); host.lastElementChild.classList.add('classes-feedback');
     const editorHost = element('div');
     const body = element('div');
     host.append(editorHost, body);

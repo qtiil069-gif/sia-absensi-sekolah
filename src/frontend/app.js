@@ -6,6 +6,7 @@
   const { renderDashboard } = window.SIA.components;
   const modules = {
     dashboard: ['Dashboard', ''],
+    settings: ['Pengaturan Sekolah', 'Identitas sekolah dan persiapan database. Hanya Admin Kepala Sekolah.'],
     kelas: ['Data Kelas', 'Kelola rombongan belajar dan wali kelas. Guru hanya dapat melihat kelas penugasannya.'],
     siswa: ['Data Siswa', 'Cari siswa, kelola data dan keanggotaan kelas. Riwayat siswa nonaktif tetap disimpan.'],
     absensi: ['Absensi Siswa', 'Catat dan perbarui kehadiran siswa per kelas, tanggal, dan sesi yang diizinkan.'],
@@ -14,8 +15,8 @@
     guru: ['Akun Guru', 'Manajemen akun dan perubahan role melalui aplikasi belum tersedia. Akses awal diatur administrator di Sheets.'],
     laporan: ['Laporan Kehadiran', 'Modul laporan dan ekspor masih direncanakan. Grafik dashboard saat ini hanya merangkum catatan yang sudah diisi.']
   };
-  const state = { bootstrap: null, route: 'dashboard', request: 0, boot: 0, ready: false, guard: null, dirty: null };
-  const pages = { kelas: window.SIA.pages.classes, siswa: window.SIA.pages.students, absensi: window.SIA.pages.attendance };
+  const state = { bootstrap: null, route: 'dashboard', request: 0, boot: 0, ready: false, guard: null, dirty: null, disposers: [] };
+  const pages = { kelas: window.SIA.pages.classes, siswa: window.SIA.pages.students, absensi: window.SIA.pages.attendance, settings: window.SIA.pages.settings };
   const router = window.SIA.createRouter({
     routes: Object.keys(modules),
     // An initial fragment is a read-only hint (also useful for local tests).
@@ -44,11 +45,12 @@
 
   async function loadRoute() {
     if (!state.ready) return;
+    const request = ++state.request;
+    state.disposers.splice(0).forEach((dispose) => dispose());
     state.guard = null;
     state.dirty = null;
     state.route = router.current();
     const current = state.route;
-    const request = ++state.request;
     closeMenu();
     byId('error-panel').hidden = true;
     byId('dashboard-panel').hidden = current !== 'dashboard';
@@ -86,6 +88,8 @@
         if (pages[current]) {
           await pages[current](host, { user: state.bootstrap.user, today: state.bootstrap.today, rpc, preview,
             isCurrent: () => request === state.request,
+            onDispose: (dispose) => { if (request === state.request) state.disposers.push(dispose); else dispose(); },
+            onSchoolUpdated: (school) => { state.bootstrap.school = school; byId('school-name').textContent = school.name; },
             setNavigationGuard: (guard, dirty) => { if (request === state.request) { state.guard = guard; state.dirty = dirty; } } });
         } else {
           host.replaceChildren(element('p', 'Fitur dalam pengembangan', 'notice'));
@@ -126,6 +130,7 @@
       byId('greeting-name').textContent = data.user.name + '!';
       byId('profile-role').textContent = data.user.role === 'GURU' ? 'Guru' : 'Admin Kepala Sekolah';
       byId('teacher-nav').hidden = data.user.role !== 'ADMIN_KEPALA_SEKOLAH';
+      byId('settings-nav').hidden = data.user.role !== 'ADMIN_KEPALA_SEKOLAH';
       byId('school-name').textContent = data.school.name;
       byId('semester-label').textContent = data.school.semester;
       byId('date-filter').value = data.today;
@@ -147,6 +152,7 @@
   byId('class-filter').addEventListener('change', loadRoute);
   byId('date-filter').addEventListener('change', loadRoute);
   byId('skip-content').addEventListener('click', () => byId('main').focus());
+  window.addEventListener('pagehide', () => state.disposers.splice(0).forEach((dispose) => dispose()));
   window.addEventListener('beforeunload', (event) => {
     if (state.dirty?.()) { event.preventDefault(); event.returnValue = ''; }
   });
@@ -157,7 +163,7 @@
     results.hidden = !query;
     if (!query) return;
     Object.entries(modules).filter(([key, [label]]) => label.toLocaleLowerCase('id-ID').includes(query) &&
-      (key !== 'guru' || state.bootstrap?.user.role === 'ADMIN_KEPALA_SEKOLAH')).forEach(([key, [label]]) => {
+      (!['guru', 'settings'].includes(key) || state.bootstrap?.user.role === 'ADMIN_KEPALA_SEKOLAH')).forEach(([key, [label]]) => {
       const control = element('button', label);
       control.type = 'button';
       control.dataset.route = key;

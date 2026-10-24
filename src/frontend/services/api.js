@@ -15,7 +15,7 @@
       }).withFailureHandler(() => reject(new Error('Koneksi Apps Script gagal. Silakan coba lagi.')));
       const allowed = ['getBootstrap', 'getDashboard', 'listClasses', 'listStudents', 'getRosterOptions',
         'createClass', 'updateClass', 'deactivateClass', 'queryStudents', 'createStudent', 'updateStudent', 'deactivateStudent',
-        'getAttendanceOptions', 'getAttendance', 'saveAttendance'];
+        'getAttendanceOptions', 'getAttendance', 'saveAttendance', 'getSchoolSettings', 'updateSchoolSettings', 'getStage3Status', 'migrateStage3', 'prepareStudentCards', 'exportStudentData', 'validateStudentQr', 'saveQrAttendance'];
       if (!allowed.includes(name)) return reject(new Error('Fungsi tidak dikenal.'));
       if (args === undefined) runner[name]();
       else runner[name](args);

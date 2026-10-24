@@ -5,11 +5,13 @@
   const sessionKey = 'sia-demo-session-v2';
   let session = sessionStorage.getItem(sessionKey);
   if (!session) { session = crypto.randomUUID(); sessionStorage.setItem(sessionKey, session); }
-  const role = new URLSearchParams(location.search).get('demo') === 'teacher' ? 'guru' : 'admin';
+  const demo = new URLSearchParams(location.search).get('demo');
+  const role = demo === 'teacher' ? 'guru' : 'admin';
+  const schema = demo === 'legacy' ? 'v1' : 'v2';
   window.SIA_DEMO = {
     async call(method, args) {
       const response = await fetch('/__demo/rpc', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session, role, method, args }) });
+        body: JSON.stringify({ session, role, schema, method, args }) });
       if (!response.ok) throw new Error('Server demo lokal mengalami gangguan.');
       const result = await response.json();
       if (!result.ok) {

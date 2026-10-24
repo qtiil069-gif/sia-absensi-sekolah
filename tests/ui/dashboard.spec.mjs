@@ -78,7 +78,7 @@ test('Apps Script package with absent Google runtime fails visibly without demo 
   const [index, styles, scripts] = await Promise.all([
     readFile(`${root}dist/Index.html`, 'utf8'), readFile(`${root}dist/Styles.html`, 'utf8'), readFile(`${root}dist/Scripts.html`, 'utf8')
   ]);
-  await page.setContent(index.replace("<?!= include_('Styles'); ?>", styles).replace("<?!= include_('Scripts'); ?>", scripts));
+  await page.setContent(index.replace("<?!= include_('Styles'); ?>", () => styles).replace("<?!= include_('Scripts'); ?>", () => scripts));
   await expect(page.locator('#error-panel')).toBeVisible();
   await expect(page.locator('#error-message')).toContainText('Buka aplikasi melalui Apps Script');
   await expect(page.locator('#dashboard-panel')).toBeHidden();
@@ -104,7 +104,7 @@ test('Google RPC path renders Sheets data and text remains inert against stored 
       } }); }
     }; window.google = { script: { run: runner } };
   </script>`;
-  await page.setContent(index.replace("<?!= include_('Styles'); ?>", styles).replace("<?!= include_('Scripts'); ?>", mock + scripts));
+  await page.setContent(index.replace("<?!= include_('Styles'); ?>", () => styles).replace("<?!= include_('Scripts'); ?>", () => mock + scripts));
   await expect(page.locator('#mode-badge')).toHaveText('GOOGLE SHEETS');
   await expect(page.locator('#stat-students')).toHaveText('0');
   await expect(page.locator('#profile-name')).toHaveText('<img src=x onerror="window.injected=true">');

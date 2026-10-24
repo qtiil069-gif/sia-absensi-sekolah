@@ -15,7 +15,7 @@ test('admin class UI creates, searches, edits, filters and soft-deactivates', as
   await page.getByLabel('Tingkat kelas', { exact: true }).fill('11');
   await page.getByLabel('Wali kelas', { exact: true }).selectOption('DEMO-GURU');
   await page.getByRole('button', { name: 'Simpan', exact: true }).click();
-  await expect(page.locator('.page-feedback')).toHaveText('Kelas berhasil disimpan.');
+  await expect(page.locator('.classes-feedback')).toHaveText('Kelas berhasil disimpan.');
   await page.getByLabel('Cari kelas', { exact: true }).fill('Operasional');
   await expect(page.locator('tbody tr')).toHaveCount(1);
   await rowWith(page, '11 Operasional').getByRole('button', { name: 'Edit', exact: true }).click();
@@ -36,7 +36,7 @@ test('admin student UI validates duplicate NIS, edits class and retains inactive
   await page.getByLabel('NIS', { exact: true }).fill('000999');
   await page.getByLabel('Kelas siswa', { exact: true }).selectOption('DEMO-K1');
   await page.getByRole('button', { name: 'Simpan', exact: true }).click();
-  await expect(page.locator('.page-feedback')).toHaveText('Data siswa berhasil disimpan.');
+  await expect(page.locator('.students-feedback')).toHaveText('Data siswa berhasil disimpan.');
   await page.getByLabel('Cari siswa', { exact: true }).fill('000999');
   await expect(rowWith(page, 'Siswa Operasional')).toHaveCount(1);
   await rowWith(page, 'Siswa Operasional').getByRole('button', { name: 'Edit', exact: true }).click();
@@ -45,7 +45,7 @@ test('admin student UI validates duplicate NIS, edits class and retains inactive
   await expect(rowWith(page, 'Siswa Operasional')).toContainText('7 B');
   page.once('dialog', (dialog) => dialog.accept());
   await rowWith(page, 'Siswa Operasional').getByRole('button', { name: 'Nonaktifkan' }).click();
-  await expect(page.locator('.page-feedback')).toHaveText('Siswa dinonaktifkan tanpa menghapus riwayat.');
+  await expect(page.locator('.students-feedback')).toHaveText('Siswa dinonaktifkan tanpa menghapus riwayat.');
   await page.getByLabel('Status siswa').selectOption('inactive');
   await expect(rowWith(page, 'Siswa Operasional')).toContainText('Nonaktif');
   await page.getByRole('button', { name: 'Tambah siswa', exact: true }).click();
@@ -85,7 +85,7 @@ test('attendance form saves H/S/I/A, reloads and edits existing session without 
   await page.getByRole('button', { name: 'Tampilkan siswa', exact: true }).click();
   await expect(page.locator('.attendance-summary')).toContainText('Belum diisi: 36');
   await page.getByRole('button', { name: 'Simpan absensi', exact: true }).click();
-  await expect(page.locator('.page-feedback')).toContainText('Lengkapi status');
+  await expect(page.locator('.attendance-feedback')).toContainText('Lengkapi status');
   await page.getByRole('button', { name: 'Isi yang belum diisi: Hadir' }).click();
   await page.getByLabel('Status Siswa Contoh 001', { exact: true }).selectOption('S');
   await page.getByLabel('Status Siswa Contoh 002', { exact: true }).selectOption('I');
@@ -93,13 +93,13 @@ test('attendance form saves H/S/I/A, reloads and edits existing session without 
   await page.getByLabel('Catatan Siswa Contoh 001', { exact: true }).fill('Catatan uji');
   await expect(page.locator('.attendance-summary')).toContainText('Hadir: 33');
   await page.getByRole('button', { name: 'Simpan absensi', exact: true }).click();
-  await expect(page.locator('.page-feedback')).toContainText('Absensi berhasil disimpan');
+  await expect(page.locator('.attendance-feedback')).toContainText('Absensi berhasil disimpan');
   await page.getByRole('button', { name: 'Tampilkan siswa', exact: true }).click();
   await expect(page.getByLabel('Status Siswa Contoh 001', { exact: true })).toHaveValue('S');
   await expect(page.getByLabel('Catatan Siswa Contoh 001', { exact: true })).toHaveValue('Catatan uji');
   await page.getByLabel('Status Siswa Contoh 001', { exact: true }).selectOption('H');
   await page.getByRole('button', { name: 'Simpan absensi', exact: true }).click();
-  await expect(page.locator('.page-feedback')).toContainText('Absensi berhasil disimpan');
+  await expect(page.locator('.attendance-feedback')).toContainText('Absensi berhasil disimpan');
   await expect(page.locator('.attendance-summary')).toContainText('Hadir: 34');
   await expect(page.locator('tbody tr')).toHaveCount(36);
 });
@@ -123,7 +123,7 @@ test('teacher UI is read-only for master data and backend rejects a forged diffe
   await expect(page.locator('.attendance-summary')).toContainText('Belum diisi: 36');
   await page.getByRole('button', { name: 'Isi yang belum diisi: Hadir' }).click();
   await page.getByRole('button', { name: 'Simpan absensi', exact: true }).click();
-  await expect(page.locator('.page-feedback')).toContainText('Absensi berhasil disimpan');
+  await expect(page.locator('.attendance-feedback')).toContainText('Absensi berhasil disimpan');
 });
 
 test('Sheets write error preserves the editor and never shows a success message', async ({ page }) => {
@@ -152,7 +152,7 @@ test('attendance conflict retains draft, blocks repeated save and requires expli
   });
   await page.getByLabel('Status Siswa Contoh 001', { exact: true }).selectOption('A');
   await page.getByRole('button', { name: 'Simpan absensi', exact: true }).click();
-  await expect(page.locator('.page-feedback')).toContainText('Data telah berubah');
+  await expect(page.locator('.attendance-feedback')).toContainText('Data telah berubah');
   await expect(page.getByLabel('Status Siswa Contoh 001', { exact: true })).toHaveValue('A');
   await expect(page.getByRole('button', { name: 'Simpan absensi', exact: true })).toBeDisabled();
 });

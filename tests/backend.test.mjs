@@ -172,7 +172,7 @@ test('initializer creates missing headers without injecting demo accounts or stu
   const { api, tables } = backend();
   tables.clear();
   api.initializeDatabase_();
-  assert.equal(tables.size, 15);
+  assert.equal(tables.size, Object.keys(schema.sheets).length);
   for (const [name, rows] of tables) assert.deepEqual(plain(rows), [schema.sheets[name]]);
 });
 

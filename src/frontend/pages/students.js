@@ -14,7 +14,7 @@
     tools.append(query.wrap, classFilter.wrap, size.wrap);
     if (admin) tools.append(status.wrap);
     host.append(tools);
-    const message = feedback(host);
+    const message = feedback(host); host.lastElementChild.classList.add('students-feedback');
     const editorHost = element('div');
     const body = element('div');
     const pager = element('div', undefined, 'pagination');
@@ -32,9 +32,11 @@
           status: admin ? status.input.value : 'active', page, pageSize: Number(size.input.value) });
         if (!current() || request !== version) return;
         page = result.page;
-        body.replaceChildren(table(['NIS', 'Nama siswa', 'Kelas', 'Status', ...(admin ? ['Tindakan'] : [])], result.items.map((row) => {
-          const cells = [row.nis, row.name, row.classIds.map((id) => rooms.find((room) => room.id === id)?.name || id).join(', ') || 'Belum ditetapkan', row.active ? 'Aktif' : 'Nonaktif'];
-          if (admin) cells.push(actions(() => open(row), () => deactivate(row), row.active));
+        body.replaceChildren(table(['NIS', 'Nama siswa', 'Kelas', 'Nama wali', 'Telepon/WA wali', 'Hubungan', 'Status', 'Tindakan'], result.items.map((row) => {
+          const cells = [row.nis, row.name, row.classIds.map((id) => rooms.find((room) => room.id === id)?.name || id).join(', ') || 'Belum ditetapkan', row.guardianName, row.guardianPhone, row.guardianRelation, row.active ? 'Aktif' : 'Nonaktif'];
+          const group = admin ? actions(() => open(row), () => deactivate(row), row.active) : element('div', undefined, 'row-actions');
+          const print = button('Cetak kartu ID', () => window.SIA.cards.open(context, rooms, { studentIds: [row.id] }, () => { if (current()) load(); }));
+          print.disabled = !row.active; group.append(print); cells.push(group);
           return cells;
         })));
         const previous = button('Sebelumnya', () => { page--; load(); });
@@ -53,7 +55,11 @@
       const nisn = field('NISN (opsional)', { maxLength: 10, value: row?.nisn || '' });
       const room = field('Kelas siswa', { required: true, options: [['', 'Pilih kelas aktif'], ...rooms.filter((item) => item.active).map((item) => [item.id, item.name])] });
       room.input.value = row?.classIds[0] || '';
-      ui.form.append(name.wrap, nis.wrap, nisn.wrap, room.wrap, ui.actions);
+      const guardian = field('Nama wali murid', { maxLength: 120, value: row?.guardianName || '' });
+      const phone = field('Telepon/WhatsApp wali', { type: 'tel', maxLength: 30, value: row?.guardianPhone || '' });
+      const relation = field('Hubungan wali dengan siswa', { maxLength: 60, value: row?.guardianRelation || '', placeholder: 'Ayah, Ibu, Wali, …' });
+      const photo = window.SIA.images.imageField('Foto siswa', row?.photo || '');
+      ui.form.append(name.wrap, nis.wrap, nisn.wrap, room.wrap, guardian.wrap, phone.wrap, relation.wrap, photo.node, ui.actions);
       name.input.focus();
       ui.form.addEventListener('submit', async (event) => {
         event.preventDefault();
@@ -62,7 +68,11 @@
         ui.setBusy(true);
         ui.message('Menyimpan…');
         try {
+          await photo.ready();
+          const profile = { guardianName: guardian.input.value, guardianPhone: phone.input.value, guardianRelation: relation.input.value, photo: photo.value() };
+          const includeProfile = Object.values(profile).some(Boolean) || [row?.guardianName, row?.guardianPhone, row?.guardianRelation, row?.photo].some(Boolean);
           await context.rpc(row ? 'updateStudent' : 'createStudent', { name: name.input.value, nis: nis.input.value, nisn: nisn.input.value, classId: room.input.value,
+            ...(includeProfile ? profile : {}),
             ...(row ? { id: row.id, expectedRevision: row.revision } : {}) });
           if (!current()) return;
           ui.panel.remove();
@@ -86,6 +96,10 @@
     }
     tools.append(button('Muat ulang', () => { editorHost.replaceChildren(); message(''); load(); }));
     if (admin) tools.append(button('Tambah siswa', () => open(), 'coral'));
+    tools.append(button('Cetak Kartu ID', () => window.SIA.cards.open(context, rooms, null, () => { if (current()) load(); }, classFilter.input.value)));
+    tools.append(button('Unduh data Excel / PDF', () => window.SIA.cards.exportsPopup(context, {
+      q: query.input.value, classId: classFilter.input.value, status: admin ? status.input.value : 'active'
+    })));
     query.input.addEventListener('input', debounce(() => load(true)));
     for (const input of [classFilter.input, status.input, size.input]) input.addEventListener('change', () => load(true));
     await load();

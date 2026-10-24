@@ -6,6 +6,9 @@ function initializeDatabase_() {
   lock.waitLock(30000);
   try {
     var book = openDatabase_();
+    if (!book.getSheetByName('ProfilSiswa') && book.getSheets().some(function (sheet) { return sheet.getLastRow() > 0; })) {
+      fail_('MIGRATION_REQUIRED', 'Database yang sudah ada harus memakai migrasi Tahap 3 dengan cadangan, bukan initializer.');
+    }
     var names = Object.keys(DatabaseSchema_.sheets);
     // Validate every existing nonempty table before creating anything.
     names.forEach(function (name) {
