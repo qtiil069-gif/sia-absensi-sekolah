@@ -17,7 +17,7 @@ test('build produces clasp package with valid manifest, private schema and no de
     vm.runInContext(await readFile(`${root}dist/${file}`, 'utf8'), context, { filename: file });
   }
   assert.equal(typeof context.getDashboard, 'function');
-  assert.equal(context.DatabaseSchema_.version, 1);
+  assert.equal(context.DatabaseSchema_.version, 2);
   const scripts = await readFile(`${root}dist/Scripts.html`, 'utf8');
   assert.ok(!scripts.includes('window.SIA_PREVIEW = true'));
   assert.ok(!scripts.includes('DEMO-ADMIN'));
@@ -25,6 +25,8 @@ test('build produces clasp package with valid manifest, private schema and no de
   const preview = await readFile(`${root}.preview/index.html`, 'utf8');
   assert.ok(preview.includes('window.SIA_PREVIEW = true'));
   assert.ok(preview.includes('/__demo/rpc'));
+  assert.ok(!preview.includes('<!-- SCRIPTS -->'));
+  new vm.Script(preview.slice(preview.indexOf('<script>') + 8, preview.lastIndexOf('</script>')));
   const index = await readFile(`${root}dist/Index.html`, 'utf8');
   assert.ok(index.includes("<?!= include_('Styles'); ?>"));
   assert.ok(index.includes("<?!= include_('Scripts'); ?>"));

@@ -37,7 +37,7 @@ async function htmlService(page, request, role = 'admin', { beforeRpc = () => {}
     }
     const methods = ['getBootstrap','getDashboard','listClasses','listStudents','getRosterOptions','queryStudents',
       'createClass','updateClass','deactivateClass','createStudent','updateStudent','deactivateStudent',
-      'getAttendanceOptions','getAttendance','saveAttendance'];
+      'getAttendanceOptions','getAttendance','saveAttendance','getSchoolSettings', 'updateSchoolSettings', 'getStage3Status', 'migrateStage3', 'prepareStudentCards', 'exportStudentData', 'validateStudentQr', 'saveQrAttendance'];
     function runner(success, failure) {
       const value = { withSuccessHandler(fn) { return runner(fn, failure); }, withFailureHandler(fn) { return runner(success, fn); } };
       for (const method of methods) value[method] = (args) => window.siaIframeRpc(method, args).then(success, failure);
@@ -48,8 +48,8 @@ async function htmlService(page, request, role = 'admin', { beforeRpc = () => {}
   // Retain a hostile _top default, even though the fixed source removes it.
   // Native fragment links would target the parent script wrapper under this base.
   const html = index.replace('<head>', '<head><base target="_top">')
-    .replace("<?!= include_('Styles'); ?>", styles)
-    .replace("<?!= include_('Scripts'); ?>", shim + scripts);
+    .replace("<?!= include_('Styles'); ?>", () => styles)
+    .replace("<?!= include_('Scripts'); ?>", () => shim + scripts);
   await page.route(panelUrl, (route) => route.fulfill({ contentType: 'text/html', body: html }));
   await page.route(shellUrl, (route) => route.fulfill({ contentType: 'text/html', body:
     `<!doctype html><html><body style="margin:0"><iframe id="apps-script-frame"
@@ -175,7 +175,7 @@ test('class/student writes and attendance save still work through RPC inside the
   await ui.getByLabel('Nama kelas', { exact: true }).fill('8 Iframe');
   await ui.getByLabel('Tingkat kelas', { exact: true }).fill('8');
   await ui.getByRole('button', { name: 'Simpan', exact: true }).click();
-  await expect(ui.locator('.page-feedback')).toHaveText('Kelas berhasil disimpan.');
+  await expect(ui.locator('.classes-feedback')).toHaveText('Kelas berhasil disimpan.');
   await ui.locator('nav [data-route="siswa"]').click();
   await expect(ui.locator('.pagination')).toContainText('288 siswa');
   await ui.getByRole('button', { name: 'Tambah siswa', exact: true }).click();
@@ -183,7 +183,7 @@ test('class/student writes and attendance save still work through RPC inside the
   await ui.getByLabel('NIS', { exact: true }).fill('IFRAME-01');
   await ui.getByLabel('Kelas siswa', { exact: true }).selectOption({ label: '8 Iframe' });
   await ui.getByRole('button', { name: 'Simpan', exact: true }).click();
-  await expect(ui.locator('.page-feedback')).toHaveText('Data siswa berhasil disimpan.');
+  await expect(ui.locator('.students-feedback')).toHaveText('Data siswa berhasil disimpan.');
   await ui.locator('nav [data-route="absensi"]').click();
   await expect(ui.locator('.attendance-caption')).toContainText('36 siswa aktif');
   await ui.getByLabel('Kelas absensi').selectOption({ label: '8 Iframe' });
@@ -191,7 +191,7 @@ test('class/student writes and attendance save still work through RPC inside the
   await expect(ui.locator('.attendance-caption')).toContainText('1 siswa aktif');
   await ui.getByLabel('Status Siswa Uji Iframe', { exact: true }).selectOption('H');
   await ui.getByRole('button', { name: 'Simpan absensi', exact: true }).click();
-  await expect(ui.locator('.page-feedback')).toHaveText('Absensi berhasil disimpan.');
+  await expect(ui.locator('.attendance-feedback')).toHaveText('Absensi berhasil disimpan.');
   await expect(ui.locator('.attendance-summary')).toContainText('Hadir: 1');
   await assertStayed();
 });
@@ -219,5 +219,39 @@ test('mobile iframe keeps attendance draft when navigation is cancelled and rest
     try { await window.SIA.api.rpc('getAttendance', { classId: 'DEMO-K2', date: '2026-10-23' }); }
     catch (error) { return error.code; }
   })).toBe('FORBIDDEN');
+  await assertStayed();
+});
+
+test('school settings, integrated card popup and QR confirmation stay within the HtmlService iframe', async ({ page, request }) => {
+  const { ui, frame, assertStayed } = await htmlService(page, request);
+  await ui.locator('nav [data-route=settings]').click();
+  await expect(ui.getByLabel('Nama sekolah', { exact: true })).toBeVisible();
+  await ui.getByLabel('Nama sekolah', { exact: true }).fill('Sekolah Iframe Tahap 3');
+  await ui.getByRole('button', { name: 'Simpan pengaturan sekolah', exact: true }).click();
+  await expect(ui.locator('.school-feedback')).toContainText('Pengaturan sekolah disimpan');
+  await ui.locator('nav [data-route=siswa]').click();
+  await ui.getByLabel('Cari siswa', { exact: true }).fill('CONTOH-001');
+  await expect(ui.locator('tbody tr')).toHaveCount(1);
+  await ui.getByRole('button', { name: 'Cetak kartu ID', exact: true }).click();
+  const card = ui.getByRole('dialog', { name: 'Cetak Kartu ID', exact: true });
+  await expect(card.locator('.id-card')).toHaveCount(1);
+  await expect(card.locator('.id-card')).toContainText('Sekolah Iframe Tahap 3');
+  await card.getByRole('button', { name: 'Tutup', exact: true }).click();
+  const qr = await frame.evaluate(async () => (await window.SIA.api.rpc('prepareStudentCards', { studentIds: ['DEMO-S1'] })).cards[0].qr);
+  await ui.locator('nav [data-route=absensi]').click();
+  await expect(ui.locator('.attendance-caption')).toContainText('36 siswa aktif');
+  await ui.getByLabel('Tanggal absensi').fill('2026-10-26');
+  await ui.getByRole('button', { name: 'Tampilkan siswa', exact: true }).click();
+  await expect(ui.locator('.attendance-summary')).toContainText('Belum diisi: 36');
+  await ui.getByRole('tab', { name: 'Scan QR Code', exact: true }).click();
+  await ui.getByLabel('Kode QR (alternatif pembaca USB atau tempel)').fill(qr);
+  await ui.getByRole('button', { name: 'Validasi kode', exact: true }).click();
+  const confirm = ui.getByRole('dialog', { name: 'Konfirmasi Absensi QR', exact: true });
+  await expect(confirm).toContainText('Siswa Contoh 001');
+  await expect(ui.locator('.attendance-summary')).toContainText('Belum diisi: 36');
+  await confirm.getByRole('button', { name: 'Konfirmasi Hadir', exact: true }).click();
+  await expect(confirm).toHaveCount(0);
+  await expect(ui.locator('.attendance-summary')).toContainText('Hadir: 1');
+  await expect(ui.locator('nav .nav-item')).toHaveCount(9);
   await assertStayed();
 });

@@ -1,3 +1,15 @@
+# Pengujian Tahap 3
+
+Validasi lokal 24 Oktober 2026: `npm run check` lulus **79 tes backend/build + 37 tes browser**, tanpa gagal atau dilewati. `npm run build` terpisah berhasil menghasilkan 19 file clasp. Tidak ada operasi Google produksi yang dijalankan.
+
+Jalankan `npm run check` dan `npm run build` sebelum PR. Suite baru mencakup backup terverifikasi dan migrasi berulang/gagal, kompatibilitas v1, profil/foto/nomor wali, scope role, QR/token/konfirmasi/duplikasi, ukuran PDF kartu menggunakan pdf-lib, parsing Excel asli, QR yang dibaca ZXing, kamera dari stream sintetis, izin ditolak, pelepasan track, dan alur kartu/QR di iframe lintas origin. Lihat [rincian Tahap 3](stage-3.md).
+
+Modul kamera dites dengan getUserMedia yang mengembalikan video canvas sintetis dan decoder QR asli; ini bukan uji kamera fisik atau kebijakan izin Google. Tidak ada Google Sheets produksi atau credential sekolah dalam tes. Pembuatan berkas memakai pustaka yang dibundel tanpa CDN.
+
+Build menyisipkan JS sebagai teks literal melalui callback replace(), agar pola `$&` pada pustaka tidak berubah menjadi marker HTML. Regresi memvalidasi sintaks script hasil preview dan boot browser. Selector status Manual/QR dibedakan agar tab tersembunyi tidak membuat assertion ambigu. Assertion simpan/error yang lama tetap dipertahankan.
+
+Bagian berikut menyimpan cakupan dan baseline tahap 2/navigasi; hasil akhir tahap 3 dicatat pada panduan Tahap 3.
+
 # Pengujian tahap 2
 
 ## Perintah
@@ -41,7 +53,7 @@ Tambahan regresi navigasi: [navigation-htmlservice.md](navigation-htmlservice.md
 Regresi pencarian siswa: suite iframe mengaktifkan MiddleClickAutoscroll Chromium agar perilaku klik tengah tidak berbeda diam-diam antar-OS. Tes menutup autoscroll dengan Escape sebelum klik pencarian, mempertahankan assertion `288 siswa`, memeriksa route/loading, 25 baris, dan payload/total RPC. Tes tambahan mengendalikan respons asinkron dengan promise untuk membuktikan pagination muncul setelah data siap. Kegagalan asli berhasil direproduksi sebelum koreksi dengan fitur autoscroll aktif; lihat rincian pada panduan navigasi.
 
 1. Backup spreadsheet, pertahankan kedua ID dan manifest/kebijakan deployment yang sudah ditinjau. Skema v1 tidak berubah; jangan reset database.
-2. Gunakan clasp status untuk meninjau 16 file dist sebelum push yang dilakukan pengembang. Jangan kirim fixture, token, atau data pribadi ke GitHub/Apps Script source.
+2. Gunakan clasp status untuk meninjau file dist sebelum push yang dilakukan pengembang (16 pada baseline tahap 2; 19 pada tahap 3). Jangan kirim fixture, token siswa nyata, atau data pribadi ke GitHub/Apps Script source.
 3. Pada salinan spreadsheet pengembangan atau data nonpribadi yang disetujui, uji kelas baru/edit/nonaktif serta siswa baru/pindah/nonaktif. Periksa baris lama, foreign key, dan AuditLog tetap tersedia.
 4. Uji NIS ganda, nama kelas-tahun ganda, tanggal invalid, formula input, dan akun tidak terdaftar; pastikan tidak ada penulisan.
 5. Uji Admin, Guru A, Guru B, dan akun nonaktif pada sesi Google terpisah. Coba RPC dengan classId dan subjectId di luar penugasan, bukan hanya memeriksa menu tersembunyi.

@@ -9,7 +9,7 @@ const port = Number(process.env.PORT || 4173);
 const sessions = new Map();
 const methods = ['getBootstrap', 'getDashboard', 'listClasses', 'listStudents', 'queryStudents', 'getRosterOptions',
   'createClass', 'updateClass', 'deactivateClass', 'createStudent', 'updateStudent', 'deactivateStudent',
-  'getAttendanceOptions', 'getAttendance', 'saveAttendance'];
+  'getAttendanceOptions', 'getAttendance', 'saveAttendance', 'getSchoolSettings', 'updateSchoolSettings', 'getStage3Status', 'migrateStage3', 'prepareStudentCards', 'exportStudentData', 'validateStudentQr', 'saveQrAttendance'];
 const server = createServer(async (req, res) => {
   if (req.url === '/__demo/rpc' && req.method === 'POST') {
     try {
@@ -21,10 +21,11 @@ const server = createServer(async (req, res) => {
       }
       const input = JSON.parse(body);
       if (!methods.includes(input.method) || !/^[a-f0-9-]{36}$/.test(input.session) || !['admin', 'guru'].includes(input.role)) throw new Error('Permintaan tidak valid');
-      const session = input.role + ':' + input.session;
+      if (input.schema !== undefined && !['v1', 'v2'].includes(input.schema)) throw new Error('Skema demo tidak valid');
+      const session = input.role + ':' + (input.schema || 'v2') + ':' + input.session;
       if (!sessions.has(session)) {
         if (sessions.size >= 100) sessions.delete(sessions.keys().next().value);
-        sessions.set(session, createDemo(input.role));
+        sessions.set(session, createDemo(input.role, input.schema === 'v1'));
       }
       const result = sessions.get(session)[input.method](input.args);
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });

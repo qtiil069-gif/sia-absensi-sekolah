@@ -5,7 +5,7 @@
   window.SIA.pages.attendance = async (host, context) => {
     const rooms = await context.rpc('listClasses');
     if (!context.isCurrent()) return;
-    const message = feedback(host);
+    const message = feedback(host); host.lastElementChild.classList.add('attendance-feedback');
     if (!rooms.length) { message('Tidak ada kelas aktif yang dapat Anda akses. Hubungi administrator.'); return; }
     const filters = element('form', undefined, 'page-tools attendance-filters');
     const room = field('Kelas absensi', { required: true, options: rooms.map((item) => [item.id, item.name]) });
@@ -29,7 +29,16 @@
     const save = button('Simpan absensi', saveEntries, 'coral');
     save.disabled = true;
     controls.append(fill, save);
-    host.append(filters, caption, summary, controls, body);
+    const tabs = element('div', undefined, 'attendance-tabs'); tabs.setAttribute('role', 'tablist'); tabs.setAttribute('aria-label', 'Metode absensi');
+    const manualPanel = element('div'); manualPanel.id = 'manual-attendance-panel'; manualPanel.setAttribute('role', 'tabpanel');
+    const scanPanel = element('div'); scanPanel.id = 'scan-attendance-panel'; scanPanel.setAttribute('role', 'tabpanel'); scanPanel.hidden = true;
+    const manualTab = button('Absensi Manual', () => changeTab(false)); const scanTab = button('Scan QR Code', () => changeTab(true));
+    for (const [tab, id] of [[manualTab, manualPanel.id], [scanTab, scanPanel.id]]) { tab.setAttribute('role', 'tab'); tab.setAttribute('aria-controls', id); }
+    manualTab.id = 'manual-attendance-tab'; scanTab.id = 'scan-attendance-tab';
+    manualPanel.setAttribute('aria-labelledby', manualTab.id); scanPanel.setAttribute('aria-labelledby', scanTab.id);
+    manualTab.setAttribute('aria-selected', 'true'); scanTab.setAttribute('aria-selected', 'false'); manualTab.tabIndex = 0; scanTab.tabIndex = -1;
+    tabs.append(manualTab, scanTab); manualPanel.append(controls, body);
+    host.append(filters, tabs, caption, summary, manualPanel, scanPanel);
     let loaded = null;
     let drafts = [];
     let dirty = false;
@@ -42,9 +51,26 @@
       subjectId: kind.input.value === 'MAPEL' ? subject.input.value : '' });
     const selectionMatches = () => loaded && ['classId', 'date', 'kind', 'subjectId'].every((name) => loaded[name] === key()[name]);
     context.setNavigationGuard(() => {
-      if (saving) { message('Tunggu sampai proses simpan selesai.', true); return false; }
+      if (saving || scanner.busy()) { message('Tunggu sampai proses simpan selesai.', true); return false; }
       return !dirty || confirm('Perubahan absensi belum disimpan. Tinggalkan halaman ini?');
     }, () => dirty);
+
+    const scanner = window.SIA.mountQrScanner(scanPanel, {
+      ...context,
+      selection: () => {
+        if (!selectionMatches()) throw new Error('Klik Tampilkan siswa untuk memuat kelas, tanggal, dan sesi yang dipilih.');
+        return key();
+      },
+      onSaved: (data) => { loaded = data; drafts = data.entries.map((row) => ({ ...row })); dirty = false; blocked = false; renderRows(); }
+    });
+    function changeTab(scan) {
+      if (saving || scanner.busy()) { message('Tunggu proses yang sedang berjalan.', true); return; }
+      if (scan && dirty) { message('Simpan atau muat ulang draft absensi manual sebelum membuka scan QR.', true); return; }
+      if (!scan) scanner.stop();
+      manualPanel.hidden = scan; scanPanel.hidden = !scan;
+      manualTab.setAttribute('aria-selected', String(!scan)); scanTab.setAttribute('aria-selected', String(scan));
+      manualTab.tabIndex = scan ? -1 : 0; scanTab.tabIndex = scan ? 0 : -1;
+    }
 
     function updateControls() {
       const matches = selectionMatches();
@@ -98,7 +124,8 @@
       updateControls();
     }
     async function load() {
-      if (saving) return;
+      if (saving || scanner.busy()) return;
+      scanner.stop();
       if (dirty && !confirm('Muat ulang siswa? Perubahan absensi yang belum disimpan akan dilepas.')) return;
       if (kind.input.value === 'MAPEL' && !subject.input.value) { message('Pilih mata pelajaran yang ditugaskan.', true); return; }
       const request = ++version;
@@ -145,8 +172,14 @@
         }
       } finally { saving = false; if (current()) updateControls(); }
     }
+    tabs.addEventListener('keydown', (event) => {
+      if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+      event.preventDefault(); const scan = event.key === 'End' || (event.key !== 'Home' && scanPanel.hidden);
+      changeTab(scan); (scanPanel.hidden ? manualTab : scanTab).focus();
+    });
     filters.addEventListener('submit', (event) => { event.preventDefault(); load(); });
     for (const input of [room.input, date.input, kind.input, subject.input]) input.addEventListener('change', () => {
+      scanner.stop();
       if (!selectionMatches()) message('Pilihan berubah. Klik Tampilkan siswa sebelum mengisi atau menyimpan.');
       updateControls();
     });

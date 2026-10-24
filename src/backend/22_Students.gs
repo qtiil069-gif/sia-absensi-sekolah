@@ -5,9 +5,14 @@ function studentDto_(context, row, permittedIds, detailed) {
   var dto = { id: row.student_id, name: row.nama, nis: String(row.nis), active: isActive_(row.aktif),
     classIds: memberships.filter(function (item) { return !permittedIds || permittedIds.indexOf(item.class_id) !== -1; })
       .map(function (item) { return item.class_id; }) };
+  var profile = profile_(context, row.student_id);
+  dto.guardianName = profile ? profile.wali_nama : '';
+  dto.guardianPhone = profile ? String(profile.wali_telepon).replace(/^'(?=\+)/, '') : '';
+  dto.guardianRelation = profile ? profile.wali_hubungan : '';
+  dto.photo = profile ? displayImage_(profile.foto_data_url) : '';
   if (detailed) {
     dto.nisn = String(row.nisn);
-    dto.revision = revision_([row, memberships]);
+    dto.revision = revision_([row, memberships, profile]);
   }
   return dto;
 }
@@ -60,13 +65,32 @@ function studentFields_(context, input, current) {
 
 function saveStudent_(context, input, editing) {
   admin_(context);
-  input = inputObject_(input, editing ? ['id', 'name', 'nis', 'nisn', 'classId', 'expectedRevision'] : ['name', 'nis', 'nisn', 'classId']);
+  input = inputObject_(input, (editing ? ['id', 'name', 'nis', 'nisn', 'classId', 'expectedRevision'] : ['name', 'nis', 'nisn', 'classId'])
+    .concat(['guardianName', 'guardianPhone', 'guardianRelation', 'photo']));
   var row = editing ? uniqueRow_(context, 'Siswa', 'student_id', idInput_(input.id)) : null;
   if (row) checkRevision_(input.expectedRevision, studentDto_(context, row, null, true).revision);
   var fields = studentFields_(context, input, row);
   var id = row ? row.student_id : Utilities.getUuid();
   if (!row) { fields.student_id = id; fields.aktif = true; fields.created_at = fields.updated_at; }
   var changes = [change_('Siswa', row, fields)];
+  if (['guardianName', 'guardianPhone', 'guardianRelation', 'photo'].some(function (key) { return Object.prototype.hasOwnProperty.call(input, key); })) {
+    profileRows_(context, true);
+    var oldProfile = profile_(context, id);
+    var profileFields = { student_id: id, qr_token: oldProfile ? oldProfile.qr_token : Utilities.getUuid(), updated_at: fields.updated_at };
+    var profileKeys = { guardianName: 'wali_nama', guardianPhone: 'wali_telepon', guardianRelation: 'wali_hubungan', photo: 'foto_data_url' };
+    Object.keys(profileKeys).forEach(function (key) {
+      var column = profileKeys[key];
+      if (!Object.prototype.hasOwnProperty.call(input, key)) { profileFields[column] = oldProfile ? oldProfile[column] : ''; return; }
+      if (key === 'photo') profileFields[column] = imageInput_(input[key]);
+      else if (key === 'guardianPhone') {
+        if (typeof input[key] !== 'string' || input[key].length > 30 || !/^[+0-9 ()-]*$/.test(input[key])) fail_('INVALID_ARGUMENT', 'Format nomor wali tidak valid.');
+        var phone = input[key].trim().replace(/[ ()-]/g, '');
+        if (phone && !/^\+?\d{8,18}$/.test(phone)) fail_('INVALID_ARGUMENT', 'Nomor telepon/WhatsApp wali harus 8–18 digit dengan kode negara opsional.');
+        profileFields[column] = phone.charAt(0) === '+' ? "'" + phone : phone;
+      } else profileFields[column] = textInput_(input[key], key === 'guardianName' ? 'Nama wali' : 'Hubungan wali', key === 'guardianName' ? 120 : 60, true);
+    });
+    changes.push(change_('ProfilSiswa', oldProfile, profileFields));
+  }
   var memberships = rows_(context, 'KeanggotaanKelas').filter(function (item) { return item.student_id === id; });
   var target = memberships.filter(function (item) { return item.class_id === input.classId && isActive_(item.aktif); });
   if (target.length > 1) fail_('DATA_INVALID', 'Keanggotaan kelas aktif duplikat. Hubungi administrator.');

@@ -1,3 +1,9 @@
+# Skema database v2 — tambahan Tahap 3
+
+`database/schema.json` kini v2. Seluruh header 15 tab lama tetap identik dengan snapshot `database/migrations/001-schema.json`; hanya ProfilSiswa ditambahkan dengan kolom student_id, wali_nama, wali_telepon, wali_hubungan, foto_data_url, qr_token, updated_at. student_id mengacu ke Siswa dan harus unik. Token QR UUID stabil dibuat server; tidak dikirim melalui daftar/ekspor siswa biasa. Foto JPEG/PNG kecil disimpan sebagai data URL tervalidasi, bukan URL publik. Waktu disimpan ISO 8601.
+
+Migrasi harus memakai salinan spreadsheet penuh yang diverifikasi sebelum penambahan tab. Kegagalan backup/header menghentikan migrasi. Rincian, batas gambar, cakupan role dan pemulihan tersedia di [Tahap 3](stage-3.md). Inisialisasi v1 yang sudah berisi data ditolak; CRUD dasar tetap kompatibel sebelum migrasi. Informasi berikut menjelaskan relasi 15 tab fondasi yang dipertahankan.
+
 # Rancangan Google Sheets — skema v1 (tetap pada tahap 2)
 
 Sumber kebenaran struktur adalah [`database/schema.json`](../database/schema.json). Build menghasilkan `00_Schema.gs` untuk inisialisasi dan validasi baca. Tahap 2 tidak mengubah nama tab, header, urutan kolom, atau versi. Tidak perlu menjalankan initializer ulang atau migrasi. Satu spreadsheet menyimpan satu sekolah. Nama tab dan urutan header harus persis; jangan menambah kolom di tengah tanpa merencanakan versi skema berikutnya.

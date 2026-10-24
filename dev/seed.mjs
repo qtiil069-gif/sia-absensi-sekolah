@@ -1,7 +1,7 @@
 import { backend } from './sheets-runtime.mjs';
 
 // Fictional school and accounts; no real student or Google credentials.
-export function createDemo(role) {
+export function createDemo(role, legacy = false) {
   const days = ['2026-10-19', '2026-10-20', '2026-10-21', '2026-10-22', '2026-10-23'];
   const classes = Array.from({ length: 8 }, (_, i) => ({ class_id: `DEMO-K${i + 1}`, nama: `${Math.floor(i / 2) + 7} ${i % 2 ? 'B' : 'A'}`,
     tingkat: Math.floor(i / 2) + 7, year_id: 'DEMO-2026', wali_user_id: i === 0 ? 'DEMO-GURU' : '', aktif: true }));
@@ -31,6 +31,7 @@ export function createDemo(role) {
     SesiAbsensi: sessions, Absensi: attendance,
     Jurnal: sessions.map((session, i) => ({ journal_id: `DEMO-J${i}`, class_id: session.class_id, tanggal: session.tanggal, teacher_user_id: 'DEMO-GURU' }))
   } });
+  if (legacy) runtime.tables.delete('ProfilSiswa');
   runtime.api.today_ = () => '2026-10-23';
   return runtime.api;
 }

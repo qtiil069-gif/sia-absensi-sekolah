@@ -21,7 +21,7 @@ function respond_(callback, write) {
     return { ok: true, data: callback(authorize_()) };
   } catch (error) {
     var known = ['CONFIG_REQUIRED', 'UNAUTHENTICATED', 'FORBIDDEN', 'SCHEMA_MISMATCH', 'DATA_INVALID', 'INVALID_ARGUMENT',
-      'NOT_FOUND', 'DUPLICATE', 'CONFLICT', 'BUSY', 'WRITE_FAILED', 'RECOVERY_REQUIRED'];
+      'NOT_FOUND', 'DUPLICATE', 'CONFLICT', 'BUSY', 'WRITE_FAILED', 'RECOVERY_REQUIRED', 'MIGRATION_REQUIRED'];
     var safe = known.indexOf(error.code) !== -1;
     if (!safe) console.error('SIA backend: kegagalan layanan internal.');
     return { ok: false, error: { code: safe ? error.code : 'INTERNAL',
@@ -62,6 +62,15 @@ function deactivateStudent(input) { return respond_(function (context) { return 
 function getAttendanceOptions(input) { return respond_(function (context) { return attendanceOptions_(context, input); }); }
 function getAttendance(input) { return respond_(function (context) { return getAttendance_(context, input); }, true); }
 function saveAttendance(input) { return respond_(function (context) { return saveAttendance_(context, input); }, true); }
+
+function getSchoolSettings() { return respond_(function (context) { admin_(context); return schoolSettings_(context); }); }
+function updateSchoolSettings(input) { return respond_(function (context) { return updateSchool_(context, input); }, true); }
+function getStage3Status() { return respond_(stage3Status_); }
+function migrateStage3() { return respond_(migrateStage3_, true); }
+function prepareStudentCards(input) { return respond_(function (context) { return prepareCards_(context, input); }, true); }
+function exportStudentData(input) { return respond_(function (context) { return exportStudents_(context, input); }); }
+function validateStudentQr(input) { return respond_(function (context) { return validateQr_(context, input); }, true); }
+function saveQrAttendance(input) { return respond_(function (context) { return saveQr_(context, input); }, true); }
 
 function listStudents(options) {
   return respond_(function (context) {

@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "sheets": {
     "Pengaturan": ["key", "value", "description"],
     "Pengguna": ["user_id", "email", "nama", "role", "aktif", "created_at", "updated_at"],
@@ -15,6 +15,7 @@
     "Penilaian": ["assessment_id", "class_id", "subject_id", "semester_id", "nama", "jenis", "bobot", "nilai_maks", "created_by"],
     "Nilai": ["grade_id", "assessment_id", "student_id", "nilai", "updated_by", "updated_at"],
     "Jurnal": ["journal_id", "class_id", "subject_id", "tanggal", "materi", "catatan", "teacher_user_id", "created_at"],
-    "AuditLog": ["audit_id", "actor_user_id", "action", "entity", "entity_id", "timestamp"]
+    "AuditLog": ["audit_id", "actor_user_id", "action", "entity", "entity_id", "timestamp"],
+    "ProfilSiswa": ["student_id", "wali_nama", "wali_telepon", "wali_hubungan", "foto_data_url", "qr_token", "updated_at"]
   }
 }

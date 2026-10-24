@@ -52,8 +52,9 @@ export function backend({ email = 'admin@example.test', configured = true, overr
     [headers.slice(), ...(data[name] || []).map((row) => headers.map((key) => row[key] ?? ''))]
   ]));
   const calls = [];
-  const faults = { busy: false, failWriteAt: null, persistentWriteFailure: false, failFlushAt: null };
-  const metrics = { locked: false, locks: 0, writes: 0, flushes: 0, unlockedWrites: 0 };
+  const faults = { backupFailure: false, backupMismatch: false, busy: false, failWriteAt: null, persistentWriteFailure: false, failFlushAt: null };
+  const backups = [];
+  const metrics = { backups: 0, locked: false, locks: 0, writes: 0, flushes: 0, unlockedWrites: 0 };
   const capacities = new Map();
   const lastRow = (name) => {
     const rows = tables.get(name);
@@ -78,7 +79,8 @@ export function backend({ email = 'admin@example.test', configured = true, overr
     }
   });
   const wrapSheet = (name) => ({
-    getDataRange: () => ({ getValues: () => { calls.push(name); return tables.get(name).map((row) => Array.from(row)); } }),
+    getName: () => name,
+    getDataRange: () => ({ getValues: () => { calls.push(name); return tables.get(name).map((row) => Array.from(row)); }, getFormulas: () => tables.get(name).map((row) => Array.from(row, (value) => typeof value === 'string' && value.startsWith('=') ? value : '')) }),
     getLastRow: () => lastRow(name),
     getMaxRows: () => Math.max(capacities.get(name) || 1000, tables.get(name).length),
     insertRowsAfter: (_, number) => capacities.set(name, Math.max(capacities.get(name) || 1000, tables.get(name).length) + number),
@@ -86,6 +88,18 @@ export function backend({ email = 'admin@example.test', configured = true, overr
     setFrozenRows: () => {}
   });
   const book = {
+    getSheets: () => [...tables.keys()].map(wrapSheet),
+    copy: (name) => {
+      if (faults.backupFailure) throw new Error('Backup unavailable');
+      const saved = new Map([...tables].map(([key, values]) => [key, values.map((row) => Array.from(row))]));
+      if (faults.backupMismatch) saved.get('Siswa')[1][0] = 'changed';
+      backups.push({ name, tables: saved }); metrics.backups++;
+      const wrap = (key) => ({ getName: () => key, getDataRange: () => ({
+        getValues: () => saved.get(key).map((row) => Array.from(row)),
+        getFormulas: () => saved.get(key).map((row) => Array.from(row, (value) => typeof value === 'string' && value.startsWith('=') ? value : ''))
+      }) });
+      return { getSheets: () => [...saved.keys()].map(wrap), getSheetByName: (key) => saved.has(key) ? wrap(key) : null };
+    },
     getSheetByName: (name) => tables.has(name) ? wrapSheet(name) : null,
     insertSheet: (name) => { tables.set(name, []); return wrapSheet(name); }
   };
@@ -96,6 +110,7 @@ export function backend({ email = 'admin@example.test', configured = true, overr
     SpreadsheetApp: { openById: () => book, flush: () => { if (++metrics.flushes === faults.failFlushAt) throw new Error('MOCK_FLUSH_FAILURE_PRIVATE'); } },
     Utilities: {
       getUuid: randomUUID,
+      base64Decode: (value) => [...Buffer.from(value, 'base64')],
       DigestAlgorithm: { SHA_256: 'sha256' }, Charset: { UTF_8: 'utf8' },
       computeDigest: (algorithm, value) => [...createHash('sha256').update(value).digest()],
       formatDate: (date, zone, format) => format === 'yyyy-MM-dd' ? date.toISOString().slice(0, 10) : date.toISOString()
@@ -110,5 +125,5 @@ export function backend({ email = 'admin@example.test', configured = true, overr
   for (const file of readdirSync(`${base}src/backend`).filter((name) => name.endsWith('.gs')).sort()) {
     vm.runInContext(readFileSync(`${base}src/backend/${file}`, 'utf8'), context, { filename: file });
   }
-  return { api: context, tables, calls, data, context, faults, metrics };
+  return { api: context, tables, calls, data, context, faults, metrics, backups };
 }

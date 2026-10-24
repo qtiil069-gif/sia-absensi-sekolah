@@ -1,3 +1,24 @@
+# Tambahan kontrak backend Tahap 3
+
+Semua RPC tetap memakai envelope `{ok,data}` / `{ok:false,error}` dan identitas Google server. Delapan RPC baru:
+
+| RPC | Input | Akses dan hasil |
+| --- | --- | --- |
+| getSchoolSettings | — | Admin: name/logo/address/identity/semester/revision |
+| updateSchoolSettings | name,logo,address,identity,expectedRevision | Admin + lock/revision/audit; mempertahankan key lain |
+| getStage3Status | — | Admin: ready/version; tidak mengubah data |
+| migrateStage3 | — | Admin + lock: verifikasi backup, tambah tab saja, no-op bila sudah valid |
+| prepareStudentCards | studentIds[] ATAU classId | Siswa aktif dalam scope; membuat token profil bila belum ada, school + cards[] berisi id,name,nis,nisn,photo,className,qr |
+| exportStudentData | q?,classId?,status? | Scope role seperti queryStudents, maksimal 500; school + rows[] tanpa foto/token |
+| validateStudentQr | classId,date,kind?,subjectId?,qr | Validasi akun/token/roster/sesi; student + status + expectedRevision + selection; tidak menulis absensi |
+| saveQrAttendance | input validasi + expectedRevision | Lock, validasi ulang, tolak siswa tercatat, tambahkan satu H + audit; output DTO Attendance yang sama |
+
+createStudent/updateStudent menerima field opsional guardianName,guardianPhone,guardianRelation,photo; field lama tetap kompatibel. Field yang tidak dikirim dipertahankan. Saat field profil dikirim, tab ProfilSiswa harus sudah dimigrasi. DTO queryStudents menambahkan guardianName/Phone/Relation/photo dalam scope; revision admin juga memasukkan profil. NISN di kartu/ekspor diperoleh hanya setelah cakupan siswa diperiksa.
+
+MIGRATION_REQUIRED adalah kode baru untuk fitur profil/kartu/QR pada v1. QR memakai token acak yang dipetakan server, bukan identitas/role kiriman klien. Konfirmasi terikat ke snapshot absensi, identitas dan pilihan sesi; pemalsuan kelas/mapel atau replay tidak melewati pemeriksaan server. QR bukan login atau bukti identitas fisik. Gambar backend PNG/JPEG tervalidasi signature/batas; browser dapat memilih WebP lalu mengubahnya menjadi JPEG.
+
+Rincian migrasi, privasi data wali, batas kartu dan kamera: [stage-3.md](stage-3.md). Kontrak tahap 2 berikut tetap berlaku kecuali tambahan profil di atas.
+
 # Kontrak backend — tahap 2
 
 Transport tetap `google.script.run`, bukan REST. `doGet()` hanya merender shell. Semua RPC data memvalidasi email dari `Session.getActiveUser()` terhadap akun aktif/unik di Pengguna, lalu memeriksa role dan cakupan. Helper berakhiran `_` tidak dapat dipanggil via RPC. Initializer tetap helper manual yang hanya dapat dijalankan pemilik/editor proyek.

@@ -2,18 +2,21 @@ import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import vm from 'node:vm';
+import * as esbuild from 'esbuild';
 
 export const root = fileURLToPath(new URL('../', import.meta.url));
 export async function build() {
   const read = (file) => readFile(path.join(root, file), 'utf8');
-  const frontendFiles = ['lib/dom.js', 'lib/router.js', 'lib/forms.js', 'services/api.js', 'components/dashboard.js', 'components/table.js',
-    'pages/classes.js', 'pages/students.js', 'pages/attendance.js', 'app.js'];
+  const frontendFiles = ['lib/dom.js', 'lib/router.js', 'lib/forms.js', 'lib/dialogs.js', 'lib/images.js', 'lib/files.js', 'lib/qr-camera.js', 'services/api.js', 'components/dashboard.js', 'components/table.js', 'components/student-cards.js', 'components/qr-scanner.js',
+    'pages/classes.js', 'pages/students.js', 'pages/attendance.js', 'pages/settings.js', 'app.js'];
   const [html, css, frontend, demo, schemaText, manifestText] = await Promise.all([
     read('src/frontend/index.html'), read('src/frontend/styles.css'),
     Promise.all(frontendFiles.map((name) => read(`src/frontend/${name}`))),
     read('dev/demo-transport.js'), read('database/schema.json'), read('src/appsscript.json')
   ]);
-  const js = frontend.join('\n');
+  const vendors = await esbuild.build({ stdin: { contents: await read('src/frontend/lib/vendors.mjs'), resolveDir: root, loader: 'js' },
+    bundle: true, platform: 'browser', format: 'iife', target: 'es2020', write: false, minify: true, legalComments: 'inline', logLevel: 'silent' });
+  const js = [frontend[0], vendors.outputFiles[0].text, ...frontend.slice(1)].join('\n');
   const manifest = JSON.parse(manifestText);
   const schema = JSON.parse(schemaText);
   new vm.Script(js);
@@ -32,8 +35,8 @@ export async function build() {
   const write = (file, contents) => writeFile(path.join(root, file), contents);
   const gasHtml = html.replace('<!-- STYLES -->', "<?!= include_('Styles'); ?>")
     .replace('<!-- SCRIPTS -->', "<?!= include_('Scripts'); ?>");
-  const localHtml = html.replace('<!-- STYLES -->', `<style>\n${css}\n</style>`)
-    .replace('<!-- SCRIPTS -->', `<script>window.SIA_PREVIEW = true;\n${demo}\n${js}\n</script>`);
+  const localHtml = html.replace('<!-- STYLES -->', () => `<style>\n${css}\n</style>`)
+    .replace('<!-- SCRIPTS -->', () => `<script>window.SIA_PREVIEW = true;\n${demo}\n${js}\n</script>`);
   await Promise.all([
     write('dist/Index.html', gasHtml), write('dist/Styles.html', `<style>\n${css}\n</style>`),
     write('dist/Scripts.html', `<script>\n${js}\n</script>`),
