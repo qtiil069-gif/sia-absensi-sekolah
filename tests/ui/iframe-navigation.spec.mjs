@@ -13,7 +13,7 @@ test.use({ launchOptions: { ...playwrightConfig.use.launchOptions,
 const shellUrl = 'https://sia-shell.test/exec';
 const panelUrl = 'https://script.googleusercontent.com/userCodeAppPanel?createOAuthDialog=true';
 
-async function htmlService(page, request, role = 'admin', { beforeRpc = () => {} } = {}) {
+async function htmlService(page, request, role = 'admin', { beforeRpc = () => {}, documentWriteTransport = false } = {}) {
   const [index, styles, scripts] = await Promise.all(['Index.html', 'Styles.html', 'Scripts.html']
     .map((name) => readFile(`${root}dist/${name}`, 'utf8')));
   const session = randomUUID();
@@ -50,7 +50,13 @@ async function htmlService(page, request, role = 'admin', { beforeRpc = () => {}
   const html = index.replace('<head>', '<head><base target="_top">')
     .replace("<?!= include_('Styles'); ?>", () => styles)
     .replace("<?!= include_('Scripts'); ?>", () => shim + scripts);
-  await page.route(panelUrl, (route) => route.fulfill({ contentType: 'text/html', body: html }));
+  // Model a host HTML processing-instruction pass before document.write(). This
+  // deliberately differs from serving the untouched HTML directly: XML text in
+  // a JS literal must survive the transport, not become host markup.
+  const panel = documentWriteTransport
+    ? `<script>document.open();document.write(${JSON.stringify(html.replace(/<\?[\s\S]*?\?>/g, '')).replace(/</g, '\\u003c')});document.close();</script>`
+    : html;
+  await page.route(panelUrl, (route) => route.fulfill({ contentType: 'text/html', body: panel }));
   await page.route(shellUrl, (route) => route.fulfill({ contentType: 'text/html', body:
     `<!doctype html><html><body style="margin:0"><iframe id="apps-script-frame"
       style="border:0;width:100vw;height:100vh" src="${panelUrl}"
@@ -58,6 +64,7 @@ async function htmlService(page, request, role = 'admin', { beforeRpc = () => {}
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto(shellUrl);
+  expect(errors).toEqual([]);
   const ui = page.frameLocator('#apps-script-frame');
   await expect(ui.locator('#stat-students')).toHaveText(role === 'guru' ? '36' : '288');
   const frame = page.frames().find((item) => item.url() === panelUrl);
@@ -73,6 +80,26 @@ async function htmlService(page, request, role = 'admin', { beforeRpc = () => {}
     expect(await frame.evaluate(() => window.__navigationProbe)).toEqual({ documentId, hashChanges: 0, historyCalls: 0 });
   };
   return { ui, frame, assertStayed, rpcCalls };
+}
+
+for (const role of ['admin', 'guru']) {
+  test(`document.write transport preserves bundled XML and boots the ${role} iframe`, async ({ page, request }) => {
+    const { ui, assertStayed, rpcCalls } = await htmlService(page, request, role, { documentWriteTransport: true });
+    await expect(ui.locator('#mode-badge')).toHaveText('GOOGLE SHEETS');
+    await expect(ui.locator('#notice')).not.toContainText('Menyiapkan ruang sekolah Anda');
+    await expect(ui.locator('#profile-name')).not.toHaveText('Selamat datang!');
+    expect(rpcCalls.some((call) => call.method === 'getBootstrap' && call.result.ok)).toBe(true);
+    expect(rpcCalls.some((call) => call.method === 'getDashboard' && call.result.ok)).toBe(true);
+    if (role === 'admin') {
+      await expect(ui.locator('#settings-nav')).toBeVisible();
+      await ui.locator('#settings-nav').click();
+      await expect(ui.locator('#module-title')).toHaveText('Pengaturan Sekolah');
+      await expect(ui.getByLabel('Nama sekolah', { exact: true })).toBeVisible();
+    } else await expect(ui.locator('#settings-nav')).toBeHidden();
+    await ui.locator('nav [data-route="siswa"]').click();
+    await expect(ui.locator('.pagination')).toContainText(role === 'admin' ? '288 siswa' : '36 siswa');
+    await assertStayed();
+  });
 }
 
 test('all sidebar routes render within the same cross-origin HtmlService iframe', async ({ page, request }) => {

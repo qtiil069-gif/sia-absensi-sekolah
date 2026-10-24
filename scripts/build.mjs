@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import vm from 'node:vm';
 import * as esbuild from 'esbuild';
+import { escapeHtmlServiceScript } from './htmlservice-script.mjs';
 
 export const root = fileURLToPath(new URL('../', import.meta.url));
 export async function build() {
@@ -16,11 +17,12 @@ export async function build() {
   ]);
   const vendors = await esbuild.build({ stdin: { contents: await read('src/frontend/lib/vendors.mjs'), resolveDir: root, loader: 'js' },
     bundle: true, platform: 'browser', format: 'iife', target: 'es2020', write: false, minify: true, legalComments: 'inline', logLevel: 'silent' });
-  const js = [frontend[0], vendors.outputFiles[0].text, ...frontend.slice(1)].join('\n');
+  const js = escapeHtmlServiceScript([frontend[0], vendors.outputFiles[0].text, ...frontend.slice(1)].join('\n'));
   const manifest = JSON.parse(manifestText);
   const schema = JSON.parse(schemaText);
   new vm.Script(js);
-  new vm.Script(demo);
+  const previewScript = escapeHtmlServiceScript(`window.SIA_PREVIEW = true;\n${demo}\n${js}`);
+  new vm.Script(previewScript);
   const files = (await readdir(path.join(root, 'src/backend'))).filter((file) => file.endsWith('.gs')).sort();
   const backend = await Promise.all(files.map(async (name) => [name, await read(`src/backend/${name}`)]));
   backend.forEach(([name, code]) => new vm.Script(code, { filename: name }));
@@ -36,7 +38,7 @@ export async function build() {
   const gasHtml = html.replace('<!-- STYLES -->', "<?!= include_('Styles'); ?>")
     .replace('<!-- SCRIPTS -->', "<?!= include_('Scripts'); ?>");
   const localHtml = html.replace('<!-- STYLES -->', () => `<style>\n${css}\n</style>`)
-    .replace('<!-- SCRIPTS -->', () => `<script>window.SIA_PREVIEW = true;\n${demo}\n${js}\n</script>`);
+    .replace('<!-- SCRIPTS -->', () => `<script>${previewScript}\n</script>`);
   await Promise.all([
     write('dist/Index.html', gasHtml), write('dist/Styles.html', `<style>\n${css}\n</style>`),
     write('dist/Scripts.html', `<script>\n${js}\n</script>`),

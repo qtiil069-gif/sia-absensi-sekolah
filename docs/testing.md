@@ -1,5 +1,9 @@
 # Pengujian Tahap 3
 
+Regresi bundle HtmlService: [temuan, reproduksi document.write, dan petunjuk pembaruan](htmlservice-bundle.md). Mode iframe tambahan memodelkan pemrosesan XML sebelum document.write; dua tes admin/guru gagal dengan SyntaxError sebelum perbaikan escaping, lalu memeriksa bootstrap/dashboard, identitas, menu admin dan navigasi. Tes build memeriksa nilai runtime XML/regex/biner tetap identik, tidak ada delimiter XML/kontrol mentah, serta penolakan penutup script prematur. Ini pengujian lokal, bukan verifikasi deployment Google Versi 6.
+
+Hasil perbaikan bundle 24 Oktober 2026: **81 tes backend/build + 39 tes browser lulus**; build final berhasil (19 file). Clasp status default terhalang .clasp.json yang tidak tersedia; status offline dengan konfigurasi contoh berhasil. Tidak ada perubahan ID atau operasi tulis Google.
+
 ## Regresi konfigurasi Spreadsheet setelah PR #5
 
 Pada main `c3beff2`, Node v24.19.0, tes asli `missing spreadsheet configuration produces actionable error, no demo fallback` dan seluruh 79 tes backend/build lulus sebelum perubahan. Kegagalan null → INTERNAL yang dilaporkan belum direproduksi dari checkout tersebut; penyebab spesifik pada lingkungan pelapor belum dapat dipastikan tanpa output/versi lingkungannya.
