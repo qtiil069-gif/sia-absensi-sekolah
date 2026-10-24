@@ -7,6 +7,8 @@ import { fileURLToPath } from 'node:url';
 const base = fileURLToPath(new URL('../', import.meta.url));
 export const schema = JSON.parse(readFileSync(`${base}database/schema.json`, 'utf8'));
 export function backend({ email = 'admin@example.test', configured = true, overrides = {} } = {}) {
+  // Apps Script returns a string for the requested key, or null when absent.
+  const scriptProperties = new Map(configured ? [['APP_SPREADSHEET_ID', 'SHEET_TEST_ID']] : []);
   const data = {
     Pengaturan: [{ key: 'school_name', value: 'Sekolah Uji', description: '' }],
     Pengguna: [
@@ -105,7 +107,7 @@ export function backend({ email = 'admin@example.test', configured = true, overr
   };
   const context = vm.createContext({
     console: { error: () => {} },
-    PropertiesService: { getScriptProperties: () => ({ getProperty: () => configured ? 'SHEET_TEST_ID' : null }) },
+    PropertiesService: { getScriptProperties: () => ({ getProperty: (key) => scriptProperties.get(key) ?? null }) },
     Session: { getActiveUser: () => ({ getEmail: () => email }), getScriptTimeZone: () => 'Asia/Jakarta' },
     SpreadsheetApp: { openById: () => book, flush: () => { if (++metrics.flushes === faults.failFlushAt) throw new Error('MOCK_FLUSH_FAILURE_PRIVATE'); } },
     Utilities: {
@@ -125,5 +127,5 @@ export function backend({ email = 'admin@example.test', configured = true, overr
   for (const file of readdirSync(`${base}src/backend`).filter((name) => name.endsWith('.gs')).sort()) {
     vm.runInContext(readFileSync(`${base}src/backend/${file}`, 'utf8'), context, { filename: file });
   }
-  return { api: context, tables, calls, data, context, faults, metrics, backups };
+  return { api: context, tables, calls, data, context, faults, metrics, backups, scriptProperties };
 }

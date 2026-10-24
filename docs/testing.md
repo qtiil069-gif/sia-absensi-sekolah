@@ -1,5 +1,17 @@
 # Pengujian Tahap 3
 
+## Regresi konfigurasi Spreadsheet setelah PR #5
+
+Pada main `c3beff2`, Node v24.19.0, tes asli `missing spreadsheet configuration produces actionable error, no demo fallback` dan seluruh 79 tes backend/build lulus sebelum perubahan. Kegagalan null → INTERNAL yang dilaporkan belum direproduksi dari checkout tersebut; penyebab spesifik pada lingkungan pelapor belum dapat dipastikan tanpa output/versi lingkungannya.
+
+Celah yang berhasil direproduksi: nilai Script Property berisi whitespace lolos dari pemeriksaan truthy di `openDatabase_()`. Ketika openById menolak ID tersebut, API menyamarkan error sebagai INTERNAL. Dua regresi gagal sebelum perbaikan untuk nilai whitespace dan ID ber-spasi. Kini nilai null/kosong/whitespace menjadi CONFIG_REQUIRED sebelum membuka Sheets, sedangkan spasi di sekitar ID terisi dipangkas tanpa mengubah nilai tersimpan. Kunci APP_SPREADSHEET_ID dipertahankan; tidak ada fallback demo atau perubahan pemetaan error API.
+
+Mock PropertiesService kini menyimpan nilai per kunci dan mengembalikan null untuk properti yang tidak ada. Tes mencakup helper langsung, RPC baca/tulis (termasuk fitur Tahap 3), nol pembukaan/penulisan database saat konfigurasi kosong, pelepasan lock, dan tidak berubahnya data. Gangguan getScriptProperties, getProperty, openById serta pembacaan Sheets tetap INTERNAL dengan pesan privat disembunyikan.
+
+Validasi perbaikan 24 Oktober 2026: `npm run check` lulus **80 tes backend/build dan 37 tes browser**, nol gagal/dilewati; `npm run build` terpisah berhasil (19 file clasp). Semua tes baseline dipertahankan, dengan satu tes tambahan dan perluasan kasus konfigurasi. Tidak ada perubahan schema, ID, fitur UI, migrasi, clasp push, atau deployment.
+
+## Baseline Tahap 3
+
 Validasi lokal 24 Oktober 2026: `npm run check` lulus **79 tes backend/build + 37 tes browser**, tanpa gagal atau dilewati. `npm run build` terpisah berhasil menghasilkan 19 file clasp. Tidak ada operasi Google produksi yang dijalankan.
 
 Jalankan `npm run check` dan `npm run build` sebelum PR. Suite baru mencakup backup terverifikasi dan migrasi berulang/gagal, kompatibilitas v1, profil/foto/nomor wali, scope role, QR/token/konfirmasi/duplikasi, ukuran PDF kartu menggunakan pdf-lib, parsing Excel asli, QR yang dibaca ZXing, kamera dari stream sintetis, izin ditolak, pelepasan track, dan alur kartu/QR di iframe lintas origin. Lihat [rincian Tahap 3](stage-3.md).

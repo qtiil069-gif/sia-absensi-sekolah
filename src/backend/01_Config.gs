@@ -7,7 +7,9 @@ function fail_(code, message) {
 
 function openDatabase_() {
   var id = PropertiesService.getScriptProperties().getProperty('APP_SPREADSHEET_ID');
-  if (!id) fail_('CONFIG_REQUIRED', 'Spreadsheet belum dikonfigurasi oleh administrator.');
+  // getProperty returns string|null. Normalize only the value, not service errors.
+  id = id === null ? '' : id.trim();
+  if (!id) fail_('CONFIG_REQUIRED', 'Spreadsheet belum dikonfigurasi. Administrator perlu mengisi APP_SPREADSHEET_ID pada Script Properties.');
   return SpreadsheetApp.openById(id);
 }
 

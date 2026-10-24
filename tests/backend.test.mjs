@@ -28,8 +28,45 @@ for (const [label, email, code] of [
 }
 
 test('missing spreadsheet configuration produces actionable error, no demo fallback', () => {
-  const result = backend({ configured: false }).api.getBootstrap();
-  assert.equal(result.error.code, 'CONFIG_REQUIRED');
+  for (const value of [null, '', '   ', '\t\n']) {
+    const { api, scriptProperties, tables, calls, metrics } = backend({ configured: false });
+    if (value !== null) scriptProperties.set('APP_SPREADSHEET_ID', value);
+    assert.equal(api.PropertiesService.getScriptProperties().getProperty('APP_SPREADSHEET_ID'), value);
+    let opens = 0;
+    api.SpreadsheetApp.openById = () => { opens++; throw new Error('MUST_NOT_OPEN_UNCONFIGURED_DATABASE'); };
+    const before = JSON.stringify([...tables]);
+    assert.throws(() => api.openDatabase_(), { code: 'CONFIG_REQUIRED' });
+    for (const method of ['getBootstrap', 'listClasses', 'queryStudents', 'createStudent', 'getAttendance',
+      'saveAttendance', 'getSchoolSettings', 'prepareStudentCards', 'validateStudentQr', 'saveQrAttendance']) {
+      const result = api[method]();
+      assert.equal(result.ok, false, method);
+      assert.equal(result.error.code, 'CONFIG_REQUIRED', `${method}: ${JSON.stringify(value)}`);
+      assert.match(result.error.message, /administrator/i);
+      assert.equal(result.data, undefined, method);
+    }
+    assert.equal(opens, 0);
+    assert.equal(calls.length, 0);
+    assert.equal(metrics.writes, 0);
+    assert.equal(metrics.locked, false);
+    assert.equal(JSON.stringify([...tables]), before);
+  }
+});
+
+test('Spreadsheet configuration uses the existing Script Property key and trims surrounding whitespace', () => {
+  for (const value of ['SHEET_TEST_ID', ' \tSHEET_TEST_ID\n ']) {
+    const { api, scriptProperties } = backend({ configured: false });
+    const properties = api.PropertiesService.getScriptProperties();
+    assert.equal(properties.getProperty('APP_SPREADSHEET_ID'), null);
+    scriptProperties.set('APP_SPREADSHEET_ID', value);
+    assert.equal(properties.getProperty('APP_SPREADSHEET_ID'), value);
+    assert.equal(properties.getProperty('UNRELATED_PROPERTY'), null);
+    const open = api.SpreadsheetApp.openById;
+    const ids = [];
+    api.SpreadsheetApp.openById = (id) => { ids.push(id); return open(id); };
+    assert.equal(api.getBootstrap().ok, true);
+    assert.deepEqual(ids, ['SHEET_TEST_ID']);
+    assert.equal(properties.getProperty('APP_SPREADSHEET_ID'), value, 'configuration is not rewritten');
+  }
 });
 
 test('duplicate account and unsupported role fail closed', () => {
@@ -152,11 +189,21 @@ test('each table is read at most once in a dashboard request', () => {
 });
 
 test('unexpected spreadsheet errors do not expose stack traces or internal messages', () => {
-  const { api } = backend();
-  api.SpreadsheetApp.openById = () => { throw new Error('PRIVATE_SPREADSHEET_ID'); };
-  const result = plain(api.getBootstrap());
-  assert.equal(result.error.code, 'INTERNAL');
-  assert.ok(!JSON.stringify(result).includes('PRIVATE_SPREADSHEET_ID'));
+  for (const fail of [
+    (api) => { api.PropertiesService.getScriptProperties = () => { throw new Error('PRIVATE_PROPERTIES_SERVICE'); }; },
+    (api) => { api.PropertiesService.getScriptProperties = () => ({ getProperty: () => { throw new Error('PRIVATE_PROPERTY_READ'); } }); },
+    (api) => { api.SpreadsheetApp.openById = () => { throw new Error('PRIVATE_SPREADSHEET_ID'); }; },
+    (api) => { api.SpreadsheetApp.openById = () => ({ getSheetByName: () => { throw new Error('PRIVATE_SHEETS_READ'); } }); }
+  ]) {
+    const { api } = backend();
+    fail(api);
+    const result = plain(api.getBootstrap());
+    assert.equal(result.ok, false);
+    assert.equal(result.error.code, 'INTERNAL');
+    assert.equal(result.data, undefined);
+    assert.ok(!JSON.stringify(result).includes('PRIVATE_'));
+    assert.equal(result.error.stack, undefined);
+  }
 });
 
 test('initializer is repeatable and preserves all pre-existing rows', () => {

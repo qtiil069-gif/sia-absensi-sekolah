@@ -123,7 +123,7 @@ Tidak ada deployment produksi yang dilakukan oleh build, pengujian, atau proses 
 
 | Gejala | Pemeriksaan |
 | --- | --- |
-| `CONFIG_REQUIRED` | Isi `APP_SPREADSHEET_ID` pada Script Properties proyek yang benar. |
+| `CONFIG_REQUIRED` | Isi `APP_SPREADSHEET_ID` pada Script Properties proyek yang benar. Properti yang tidak ada, kosong, atau hanya berisi spasi dianggap belum dikonfigurasi; spasi di sekitar ID dipangkas saat dibaca, tanpa menulis ulang properti. |
 | `UNAUTHENTICATED` | Identitas Google kosong; periksa sesi, akun, dan konfigurasi deployment. Jangan menerima email dari klien sebagai pengganti. |
 | `FORBIDDEN` | Periksa email unik, role persis, `aktif=TRUE`, kelas aktif dan penugasan; jangan memperluas akses global. |
 | `SCHEMA_MISMATCH` | Bandingkan header/urutannya dengan JSON; cadangkan sebelum memperbaiki manual. |
@@ -133,3 +133,5 @@ Tidak ada deployment produksi yang dilakukan oleh build, pengujian, atau proses 
 | Perubahan sumber belum terlihat | Mulai ulang `npm run dev`; untuk Google, build, tinjau status, lalu push ke proyek pengembangan. |
 
 Error operasional tambahan (DUPLICATE, CONFLICT, BUSY, WRITE_FAILED, RECOVERY_REQUIRED) dijelaskan pada [panduan operasional](operasional.md). Jangan mengulang simpan otomatis setelah error; muat ulang dan rekonsiliasi dahulu.
+
+Kegagalan membaca PropertiesService atau membuka spreadsheet dengan ID terisi tetap `INTERNAL`, bukan `CONFIG_REQUIRED`. Jangan mengatasi gangguan izin/layanan dengan mengganti ID atau mereset database. Dalam tes lokal, mock getProperty harus mengembalikan string untuk kunci yang diminta atau null jika tidak ada, sesuai kontrak Apps Script.
