@@ -1,5 +1,9 @@
 # Pengujian Tahap 3
 
+Regresi hash setelah PR #8: [reproduksi checkout CRLF dan perbaikan newline build](htmlservice-line-endings.md). Helper inline menghasilkan LF sebelum HTML parsing; assertion SHA-256 iframe tetap persis tanpa normalisasi/trim. Tes Node dan browser baru mencakup LF, CRLF, lone CR, nilai template/escape/Unicode/Base64 dan deteksi perubahan isi.
+
+Validasi perbaikan newline 26 Oktober 2026: checkout LF dan CRLF masing-masing lulus **95 tes backend/build dan 52 tes Playwright** melalui `npm run check`, tanpa gagal/dilewati. Scripts.html kedua checkout identik byte/hash; build terpisah tetap menghasilkan 24 file. Tidak ada migrasi, clasp push atau deployment.
+
 Regresi pemisahan pustaka: [audit dan verifikasi Google](htmlservice-bundle.md). Core dan tiga aset dibandingkan dengan script yang benar-benar disisipkan di browser melalui ukuran/hash; payload terpotong/berubah/tertukar/berversi salah ditolak sebelum eksekusi, Dashboard/menu/manual tetap hidup, dan retry memuat pustaka utuh. Seluruh tes ekspor PDF/Excel, kartu dan QR tetap dijalankan. Penghapusan XML rekaan tidak digunakan untuk membuktikan perilaku Google.
 
 Validasi 26 Oktober 2026: `npm run check` lulus **93 tes backend/build dan 49 tes browser**, tanpa gagal/dilewati; build final menghasilkan 24 file. Status clasp dengan konfigurasi contoh mengonfirmasi daftar tersebut secara offline. Tidak ada migrasi, clasp push atau deployment; /dev dan /exec nyata masih perlu verifikasi pemilik.

@@ -28,6 +28,7 @@ test('build produces clasp package with valid manifest, private schema and no de
   assert.doesNotMatch(scripts, /AAAL0AAAAAACAAAAbW50clJHQi|AAEAAAARAQAABAAQR0RFR/,
     'PDF color profiles and embedded fonts must not be initial executable HTML');
   const body = scripts.slice('<script>\n'.length, scripts.lastIndexOf('</script>'));
+  assert.doesNotMatch(body, /\r/, 'inline JavaScript uses the same LF bytes as the HTML parser');
   assert.doesNotMatch(body, /<\?|\?>/, 'XML delimiters must not reach the host HTML processor');
   assert.doesNotMatch(body, /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/);
   new vm.Script(body);

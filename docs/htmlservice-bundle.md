@@ -1,5 +1,7 @@
 # HtmlService: isolasi bootstrap dan integritas pustaka
 
+Untuk dua kegagalan hash setelah merge PR #8, lihat [audit newline checkout dan document.write](htmlservice-line-endings.md). Build kini mengkanoniskan newline inline ke LF agar sumber build identik dengan script DOM pada checkout LF maupun CRLF; pemeriksaan integritas tetap persis.
+
 Basis perubahan: main `8ea873c` (PR #7). Tidak ada perubahan Spreadsheet ID, Script Properties, schema, autentikasi, role, desain, atau data sekolah. Tidak menjalankan migrasi, clasp push, atau deployment.
 
 ## Akar kegagalan yang dibuktikan
