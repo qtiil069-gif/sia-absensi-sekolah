@@ -12,5 +12,10 @@ export function escapeHtmlServiceScript(source) {
   // Owned source is also inlined. Reject an accidental HTML script terminator
   // even when the JavaScript itself would parse successfully in vm.Script.
   if (/<\/script(?=[\s/>])/i.test(escaped)) throw new Error('Unsafe closing script tag in inline JavaScript.');
+  // A host may strip debug annotations without understanding JS string bounds.
+  // Keep those markers out of the inline core, including inside string literals.
+  if (/\/\/[#@]\s*source(?:Mapping)?URL\s*=/.test(escaped)) {
+    throw new Error('Unsafe sourceURL/sourceMappingURL directive in inline JavaScript.');
+  }
   return escaped;
 }

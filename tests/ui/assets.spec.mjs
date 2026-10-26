@@ -108,9 +108,7 @@ test('all decoded static assets match the exact JavaScript inserted into the doc
     await expect(script).toHaveCount(1);
     await expect(script).toHaveAttribute('data-sha256', catalog[asset].sha256);
     const text = await script.textContent();
-    const suffix = `\n//# sourceURL=sia-asset-${asset}-${catalog[asset].sha256.slice(0, 12)}.js\n`;
-    expect(text.endsWith(suffix)).toBe(true);
-    const actual = Buffer.from(text.slice(0, -suffix.length));
+    const actual = Buffer.from(text);
     expect(actual.length).toBe(expected.length);
     expect(digest(actual)).toBe(catalog[asset].sha256);
     expect(actual.equals(expected)).toBe(true);

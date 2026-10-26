@@ -57,7 +57,7 @@
     const script = document.createElement('script');
     script.dataset.siaAsset = asset;
     script.dataset.sha256 = meta.sha256;
-    script.textContent = source + `\n//# sourceURL=sia-asset-${asset}-${meta.sha256.slice(0, 12)}.js\n`;
+    script.textContent = source;
     document.head.append(script);
     if (!ready[asset]()) { script.remove(); throw new Error('Asset did not initialize'); }
     return window.SIA.vendors;

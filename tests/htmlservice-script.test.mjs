@@ -37,3 +37,12 @@ test('canonicalization retains escaped CR/LF, content changes and significant by
   assert.notEqual(escapeHtmlServiceScript('\n' + source), source);
   assert.notEqual(escapeHtmlServiceScript(source + ' '), source);
 });
+
+test('inline source rejects debug directives embedded inside valid string literals', () => {
+  for (const marker of ['//# sourceURL=asset.js', '//@ sourceURL=asset.js',
+    '//# sourceMappingURL=asset.js.map', '//@ sourceMappingURL=asset.js.map']) {
+    const source = 'const debug = ' + JSON.stringify('\n' + marker + '\n') + ';';
+    assert.doesNotThrow(() => new vm.Script(source));
+    assert.throws(() => escapeHtmlServiceScript(source), /sourceURL\/sourceMappingURL/);
+  }
+});

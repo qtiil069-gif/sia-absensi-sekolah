@@ -1,5 +1,7 @@
 # HtmlService: isolasi bootstrap dan integritas pustaka
 
+Investigasi terbaru `Unexpected identifier 'Pustaka'`: [lokasi tepat, reproduksi sourceURL dan batas bukti](htmlservice-pustaka.md). Suffix debug opsional dihapus, guard build menolak anotasi mentah, dan seluruh kode aset di DOM kini dibandingkan langsung dengan hash manifest.
+
 Untuk dua kegagalan hash setelah merge PR #8, lihat [audit newline checkout dan document.write](htmlservice-line-endings.md). Build kini mengkanoniskan newline inline ke LF agar sumber build identik dengan script DOM pada checkout LF maupun CRLF; pemeriksaan integritas tetap persis.
 
 Basis perubahan: main `8ea873c` (PR #7). Tidak ada perubahan Spreadsheet ID, Script Properties, schema, autentikasi, role, desain, atau data sekolah. Tidak menjalankan migrasi, clasp push, atau deployment.
@@ -53,7 +55,7 @@ node scripts/audit-htmlservice.mjs
 node scripts/audit-htmlservice.mjs /path/VM18.js
 ```
 
-Tool hanya membaca dan memeriksa sintaks, tidak mengeksekusi kode salinan. Laporan menampilkan byte, SHA-256, UTF-8, sintaks, kesamaan persis/prefix/suffix dan offset perbedaan; tidak mencetak source atau pesan parser yang dapat mengandung data sensitif. Cocokkan dengan build/commit yang benar; sourceURL pustaka baru berbentuk `sia-asset-pdf-<hash>.js`. Salinan yang cocok hanya sebagian menunjukkan perbedaan file, bukan dengan sendirinya membuktikan server memotongnya. Bandingkan ukuran/source browser asli sebelum copy dan hasil file sesudah copy.
+Tool hanya membaca dan memeriksa sintaks, tidak mengeksekusi kode salinan. Laporan menampilkan byte, SHA-256, UTF-8, sintaks, kesamaan persis/prefix/suffix dan offset perbedaan; tidak mencetak source atau pesan parser yang dapat mengandung data sensitif. Cocokkan dengan build/commit yang benar; identitas pustaka tersedia pada atribut data-sia-asset dan data-sha256. Suffix debug sourceURL dihapus pada investigasi Versi 9 agar marker tersebut tidak berada di literal core. Salinan yang cocok hanya sebagian menunjukkan perbedaan file, bukan dengan sendirinya membuktikan server memotongnya. Bandingkan ukuran/source browser asli sebelum copy dan hasil file sesudah copy.
 
 ## Verifikasi manual Google setelah review
 
