@@ -1,5 +1,7 @@
 # Pengujian Tahap 3
 
+Regresi Versi 9: [Unexpected identifier Pustaka](htmlservice-pustaka.md). Filter anotasi sourceURL yang dimodelkan eksplisit menghasilkan pesan/lokasi yang cocok sebelum perbaikan; dua tes admin/guru lalu lulus setelah suffix debug dihapus. Ini tidak membuktikan transformasi internal Google tanpa VM31 asli. `npm run check` terbaru lulus **96 tes backend/build dan 54 tes Playwright**, tanpa gagal/dilewati. Assertion hash tetap persis; teks penuh aset di DOM dibandingkan tanpa pemotongan suffix.
+
 Regresi hash setelah PR #8: [reproduksi checkout CRLF dan perbaikan newline build](htmlservice-line-endings.md). Helper inline menghasilkan LF sebelum HTML parsing; assertion SHA-256 iframe tetap persis tanpa normalisasi/trim. Tes Node dan browser baru mencakup LF, CRLF, lone CR, nilai template/escape/Unicode/Base64 dan deteksi perubahan isi.
 
 Validasi perbaikan newline 26 Oktober 2026: checkout LF dan CRLF masing-masing lulus **95 tes backend/build dan 52 tes Playwright** melalui `npm run check`, tanpa gagal/dilewati. Scripts.html kedua checkout identik byte/hash; build terpisah tetap menghasilkan 24 file. Tidak ada migrasi, clasp push atau deployment.

@@ -13,7 +13,7 @@ test.use({ launchOptions: { ...playwrightConfig.use.launchOptions,
 const shellUrl = 'https://sia-shell.test/exec';
 const panelUrl = 'https://script.googleusercontent.com/userCodeAppPanel?createOAuthDialog=true';
 
-async function htmlService(page, request, role = 'admin', { beforeRpc = () => {}, documentWriteTransport = false } = {}) {
+async function htmlService(page, request, role = 'admin', { beforeRpc = () => {}, documentWriteTransport = false, sourceUrlFilter = false } = {}) {
   const [index, styles, scripts] = await Promise.all(['Index.html', 'Styles.html', 'Scripts.html']
     .map((name) => readFile(`${root}dist/${name}`, 'utf8')));
   const session = randomUUID();
@@ -50,12 +50,14 @@ async function htmlService(page, request, role = 'admin', { beforeRpc = () => {}
   const html = index.replace('<head>', '<head><base target="_top">')
     .replace("<?!= include_('Styles'); ?>", () => styles)
     .replace("<?!= include_('Scripts'); ?>", () => shim + scripts);
-  // Write the actual resolved build, without guessing at host sanitization or
-  // deleting XML. JSON and escaping '<' only protect the OUTER writer script;
-  // the string passed to document.write is byte-for-byte the resolved HTML.
+  // By default, write the resolved build unchanged. JSON and escaping '<' only
+  // protect the OUTER writer script; they preserve the HTML string's bytes.
+  // Optional diagnostic pass: model removal of sourceURL annotations. This is
+  // an explicit fault model, not a claim about Google's undocumented renderer.
+  const transported = sourceUrlFilter ? html.replace(/\/\/[#@]\s*sourceURL[^\r\n]*/g, '') : html;
   const panel = documentWriteTransport
-    ? `<script>document.open();document.write(${JSON.stringify(html).replace(/</g, '\\u003c')});document.close();</script>`
-    : html;
+    ? `<script>document.open();document.write(${JSON.stringify(transported).replace(/</g, '\\u003c')});document.close();</script>`
+    : transported;
   await page.route(panelUrl, (route) => route.fulfill({ contentType: 'text/html; charset=utf-8', body: panel }));
   await page.route(shellUrl, (route) => route.fulfill({ contentType: 'text/html; charset=utf-8', body:
     `<!doctype html><html><body style="margin:0"><iframe id="apps-script-frame"
@@ -88,6 +90,17 @@ async function htmlService(page, request, role = 'admin', { beforeRpc = () => {}
 }
 
 for (const role of ['admin', 'guru']) {
+  test(`sourceURL annotation filtering cannot corrupt the generated ${role} bootstrap`, async ({ page, request }) => {
+    const { ui, assertStayed } = await htmlService(page, request, role, { documentWriteTransport: true, sourceUrlFilter: true });
+    await expect(ui.locator('#mode-badge')).toHaveText('GOOGLE SHEETS');
+    await expect(ui.locator('#profile-name')).not.toHaveText('Selamat datang!');
+    if (role === 'admin') {
+      await ui.locator('#settings-nav').click();
+      await expect(ui.getByLabel('Nama sekolah', { exact: true })).toBeVisible();
+    } else await expect(ui.locator('#settings-nav')).toBeHidden();
+    await assertStayed();
+  });
+
   test(`document.write executes the unmodified generated bundle and boots the ${role} iframe`, async ({ page, request }) => {
     const { ui, assertStayed, rpcCalls } = await htmlService(page, request, role, { documentWriteTransport: true });
     await expect(ui.locator('#mode-badge')).toHaveText('GOOGLE SHEETS');
