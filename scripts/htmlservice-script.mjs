@@ -2,6 +2,9 @@
 // Keep host HTML processing separate from JavaScript's runtime string values.
 export function escapeHtmlServiceScript(source) {
   const escaped = source
+    // HTML parsing normalizes CRLF/lone CR before script execution. Emit that
+    // representation at build time, including sources from Windows checkouts.
+    .replace(/\r\n?/g, '\n')
     .replace(/<\?/g, '\\u003c?')
     .replace(/\?>/g, '?\\u003e')
     .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g,
