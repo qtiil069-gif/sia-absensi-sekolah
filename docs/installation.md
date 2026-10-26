@@ -1,5 +1,9 @@
 # Instalasi dan deployment pengembangan
 
+## Paket HtmlService dengan pustaka terpisah
+
+Build saat ini menghasilkan **24 file**: 17 .gs, 6 .html dan manifest. Tiga Asset_*.html berisi data pustaka statis, dan 00_BrowserAssets.gs memuat hash/ukuran yang harus cocok dengan core. Tinjau semua file melalui clasp status sebelum pemilik melakukan push manual. Tidak perlu migrasi atau mengganti ID/Script Properties untuk perbaikan bootstrap ini. Panduan /dev dan /exec: [isolasi bundle HtmlService](htmlservice-bundle.md). Bagian instalasi historis di bawah dapat menyebut jumlah file baseline lama.
+
 ## Pembaruan Tahap 3
 
 Ikuti [panduan Tahap 3](stage-3.md) untuk perubahan terbaru. Setelah build/check dan peninjauan source, push hanya ke proyek yang sudah terhubung dengan ID yang sama. Pada deployment pengembangan, Admin membuka Pengaturan Sekolah → Siapkan database Tahap 3 untuk membuat backup terverifikasi dan menambah ProfilSiswa. Jangan reset, menghapus tab, atau menjalankan initializer untuk upgrade. Source tetap memakai scopes yang sudah ada; foto/logo kecil disimpan di Sheets tanpa file Drive publik.

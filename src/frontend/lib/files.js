@@ -7,6 +7,7 @@
     setTimeout(() => URL.revokeObjectURL(url), 10000);
   }
   async function cardImages(data) {
+    await window.SIA.assets.load('qr');
     return Promise.all(data.cards.map(async (card) => ({ ...card,
       qrImage: await window.SIA.vendors.QRCode.toDataURL(card.qr, { scale: 8, margin: 4, errorCorrectionLevel: 'M' }) })));
   }
@@ -28,11 +29,13 @@
       ] })) };
   }
   async function cardsPdf(data) {
+    await window.SIA.assets.load('pdf');
     const cards = await cardImages(data);
     return window.SIA.vendors.pdfMake.createPdf(cardDefinition(data.school, cards)).getBlob();
   }
   const columns = [['name','Nama'],['nis','NIS'],['nisn','NISN'],['className','Kelas'],['guardianName','Nama Wali'],['guardianPhone','Telepon/WA Wali'],['guardianRelation','Hubungan'],['active','Aktif']];
   async function studentsExcel(data) {
+    await window.SIA.assets.load('excel');
     const workbook = new window.SIA.vendors.ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Data Siswa');
     sheet.columns = columns.map(([key, header]) => ({ key, header, width: key === 'name' ? 30 : 23, style: { numFmt: '@' } }));
@@ -41,6 +44,7 @@
     return new Blob([await workbook.xlsx.writeBuffer()], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   }
   async function studentsPdf(data) {
+    await window.SIA.assets.load('pdf');
     return window.SIA.vendors.pdfMake.createPdf({ pageSize: 'A4', pageOrientation: 'landscape', pageMargins: 25,
       defaultStyle: { font: 'Roboto', fontSize: 8 }, content: [
         { text: data.school.name, fontSize: 15, bold: true, margin: [0, 0, 0, 8] },

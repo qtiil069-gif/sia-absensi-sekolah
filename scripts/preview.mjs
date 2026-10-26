@@ -9,7 +9,7 @@ const port = Number(process.env.PORT || 4173);
 const sessions = new Map();
 const methods = ['getBootstrap', 'getDashboard', 'listClasses', 'listStudents', 'queryStudents', 'getRosterOptions',
   'createClass', 'updateClass', 'deactivateClass', 'createStudent', 'updateStudent', 'deactivateStudent',
-  'getAttendanceOptions', 'getAttendance', 'saveAttendance', 'getSchoolSettings', 'updateSchoolSettings', 'getStage3Status', 'migrateStage3', 'prepareStudentCards', 'exportStudentData', 'validateStudentQr', 'saveQrAttendance'];
+  'getAttendanceOptions', 'getAttendance', 'saveAttendance', 'getSchoolSettings', 'updateSchoolSettings', 'getStage3Status', 'migrateStage3', 'prepareStudentCards', 'exportStudentData', 'validateStudentQr', 'saveQrAttendance', 'getBrowserAsset'];
 const server = createServer(async (req, res) => {
   if (req.url === '/__demo/rpc' && req.method === 'POST') {
     try {

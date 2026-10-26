@@ -119,3 +119,7 @@ type Attendance = {
 | INTERNAL | Kegagalan layanan lain atau pembacaan ulang; jangan menganggap data belum tersimpan |
 
 Semua teks divalidasi server; awalan formula (=,+,-,@ setelah trim) dan karakter kontrol ditolak. UI memasukkan data ke textContent/value, bukan innerHTML. Identitas Google, sharing file, kuota, dan pemulihan pada layanan sesungguhnya tetap memerlukan uji integrasi; tes lokal tidak membuktikan kesiapan produksi.
+
+## Pustaka browser statis
+
+`getBrowserAsset({asset, version, start, count})` memakai autentikasi/role yang sudah ada dan tidak menulis Sheets. `asset` hanya qr/pdf/excel, `version` harus SHA-256 pada manifest build, `start` indeks bagian nol, `count` 1–8 dalam batas manifest. Respons berisi `{asset, version, start, parts: [base64, ...]}`; setiap bagian maksimal 32.768 karakter. Nama file berasal dari manifest server yang dipin, bukan input. INVALID_ARGUMENT menolak input, CONFLICT menolak versi berbeda, INTERNAL menyembunyikan error aset hilang/rusak. Klien memverifikasi seluruh byte dan SHA-256 terhadap manifest core sebelum menjalankan kode. Rincian: [transport HtmlService](htmlservice-bundle.md).

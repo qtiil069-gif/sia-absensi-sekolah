@@ -18,8 +18,10 @@
       };
       return reader;
     },
-    async start(video, facing, onResult) {
+    async start(video, facing, onResult, active = () => true) {
       if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) throw new Error('Kamera memerlukan HTTPS dan dukungan izin kamera browser.');
+      await window.SIA.assets.load('qr');
+      if (!active()) throw new DOMException('Pemindaian dibatalkan.', 'AbortError');
       return api.createReader().decodeFromConstraints({ audio: false, video: { facingMode: { ideal: facing } } }, video,
         (result) => { if (result) onResult(result.getText()); });
     },
