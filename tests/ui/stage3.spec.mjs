@@ -184,6 +184,7 @@ test('real QR decoder scans a synthetic camera stream and releases tracks before
   await page.getByRole('button', { name: 'Tampilkan siswa', exact: true }).click();
   await expect(page.locator('.attendance-summary')).toContainText('Belum diisi: 36');
   await page.evaluate(async (qr) => {
+    await window.SIA.assets.load('qr');
     const qrCanvas = document.createElement('canvas');
     await window.SIA.vendors.QRCode.toCanvas(qrCanvas, qr, { width: 300, margin: 4 });
     const canvas = document.createElement('canvas'); canvas.width = 640; canvas.height = 480;
@@ -225,6 +226,7 @@ test('dense QR payload regression decodes through the production camera adapter'
   await page.goto('/'); await expect(page.locator('#stat-students')).toHaveText('288');
   const payload = await readFile(new URL('../fixtures/qr-dense-payload.txt', import.meta.url), 'utf8');
   const decoded = await page.evaluate(async (payload) => {
+    await window.SIA.assets.load('qr');
     const image = await window.SIA.vendors.QRCode.toDataURL(payload, { scale: 8, margin: 4, errorCorrectionLevel: 'M' });
     return (await window.SIA.qrCamera.createReader().decodeFromImageUrl(image)).getText();
   }, payload);

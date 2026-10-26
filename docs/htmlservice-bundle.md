@@ -1,59 +1,63 @@
-# Regresi SyntaxError pada bundle HtmlService
+# HtmlService: isolasi bootstrap dan integritas pustaka
 
-Basis perbaikan: main `8de5fac` (merge PR #6), Node v24.19.0. Tidak ada perubahan backend, schema, role, ID, frontend, atau dependensi.
+Basis perubahan: main `8ea873c` (PR #7). Tidak ada perubahan Spreadsheet ID, Script Properties, schema, autentikasi, role, desain, atau data sekolah. Tidak menjalankan migrasi, clasp push, atau deployment.
 
-## Temuan dan reproduksi
+## Akar kegagalan yang dibuktikan
 
-Bundle Stage 3 lolos `vm.Script` dan browser yang menerima HTML utuh secara langsung, termasuk document.write() tanpa pemrosesan tambahan. Karena itu, tes lama tidak membuktikan ketahanan paket terhadap pemrosesan HTML sebelum browser mengeksekusi script.
+Bundle lama mencampur DOM utilities, seluruh PDF/Excel/QR dan app.js dalam satu elemen script. Karena JavaScript mem-parsing seluruh elemen sebelum mengeksekusinya, SyntaxError di pustaka mencegah boot() sama sekali. Reproduksi pada artefak lama dengan literal ICC sengaja dipotong menghasilkan pesan document.write/Invalid or unexpected token, status MEMUAT dan window.SIA yang belum terbentuk. Inilah ketergantungan bootstrap yang diperbaiki, bukan autentikasi atau database.
 
-Audit dist/Scripts.html menemukan empat pembuka `<?` dan lima penutup `?>` dalam literal XML milik pustaka PDF/Excel, serta 80 karakter kontrol biner mentah pada literal pustaka. Contoh rentan di ExcelJS adalah `h.push("<?xml"),o(h,f),h.push(` diikuti template literal berisi penutup XML. Jika sebuah pemroses HTML menghapus processing instruction di antara kedua delimiter tersebut, ia juga menghapus tanda kutip/kode JavaScript di tengahnya. Bundle yang semula valid menjadi tidak valid, sementara bootstrap belum sempat dijalankan. Dashboard tetap MEMUAT dan menu admin tetap tersembunyi; itu tidak membuktikan kegagalan otorisasi.
+Lokasi lama **baris 178 kolom 1463** tepat pada tanda kutip pembuka `iccProfileBase64` dari PDFKit dalam `pdfmake/build/pdfmake.js` (sekitar baris sumber 34855). Awal Base64 `AAAL0AAAAAACAAAAbW50clJHQi` adalah **profil warna ICC**, bukan font. Literal asli lengkap, 4.032 karakter Base64 / 3.024 byte. SHA-256 teks Base64: `9ca350b14a642343a3037850836d3b738fd6068d4029a4d2bd94e7d96fe3e6c6`.
 
-Fixture iframe kini memiliki mode documentWriteTransport: setelah include Styles/Scripts diselesaikan, ia memodelkan satu pass penghapusan processing instruction XML, lalu menulis HTML ke dokumen melalui document.open/write/close. Wrapper luar memakai JSON dan escape `<`, sehingga tidak memperkenalkan penutupan script tambahan.
+Font Roboto pada `pdfmake/build/vfs_fonts.js` berisi empat string berukuran 209.612–217.592 karakter, total sekitar 854 KB Base64. PDFmake juga membawa kamus Brotli 69.000 karakter. Tes membandingkan ICC serta keempat string font dengan dependensi upstream, termasuk penutup tanda kutip: semuanya utuh sesudah bundling.
 
-**Sebelum perbaikan**, kedua skenario admin/guru gagal di Chromium dengan pesan persis:
+Artefak lama Scripts.html berukuran 3.340.452 byte, SHA-256 `2ae70a3fb8c14e4421b0dcd7bc9e786d0ab999e86b5349b8fac1929ab2b391e7`; body script 3.340.435 byte, SHA-256 `1782dac06e3868b4c5f1245d8595cfd6b1430f6959a3ba2cae46fb242139557f`. Sintaks lokal valid, dan baris terpanjang 942.662 karakter. Tidak ada bukti minifikasi memotong data atau batas ukuran HtmlService tertentu menyebabkan pemotongan. Salinan DevTools yang gagal parser belum membuktikan respons asli Google juga terpotong.
 
-```text
-Failed to execute 'write' on 'Document': Invalid or unexpected token
-```
+Hipotesis penghapusan XML pada investigasi sebelumnya belum dibuktikan pada Google. Fixture yang menghapus XML secara buatan diganti pengujian output utuh. Escaper untuk core dipertahankan; tidak ada transformasi XML rekaan dalam tes transport baru.
 
-**Sesudah perbaikan**, keduanya harus memuat bootstrap/dashboard melalui backend .gs di memori, identitas akun, navigasi Data Siswa, dan menu/form Pengaturan Sekolah hanya untuk admin, tanpa pageerror atau navigasi keluar iframe.
+## Perubahan pemuatan
 
-Fixture adalah model pemrosesan transport, bukan implementasi lengkap atau rekaman internal Google. Sumber VM18/HTML respons Versi 6 belum tersedia pada pekerjaan ini. Mekanisme lokal di atas berhasil direproduksi; kecocokan persis dengan perubahan HTML yang dilakukan deployment Google tetap perlu dibandingkan dengan sumber DevTools aktual. URL Web App yang diberikan pengguna dicoba secara read-only, tetapi proxy jaringan menolak CONNECT dengan HTTP 403; Chromium menghasilkan ERR_TUNNEL_CONNECTION_FAILED. Respons aplikasi Google tidak berhasil dibaca, dan tidak ada deployment Google yang dijalankan.
+Scripts.html awal kini sekitar **71 KB**, baris terpanjang 541 karakter; tidak lagi mengandung vendor atau literal font/ICC. Dashboard, navigasi, Pengaturan Sekolah, CRUD dan absensi manual tidak memuat pustaka tersebut.
 
-## Perbaikan build
+| Kelompok | Kapan dimuat | Byte JavaScript | Batch RPC pertama |
+| --- | --- | ---: | ---: |
+| QR | Preview kartu atau Mulai kamera | 641.072 | 4 |
+| PDF | Unduh PDF kartu/data | 1.672.229 | 9 |
+| Excel | Unduh Excel | 946.834 | 5 |
 
-`scripts/htmlservice-script.mjs` menerapkan escaping setelah bundling:
+Build menghasilkan Asset_qr.html, Asset_pdf.html dan Asset_excel.html berisi data Base64 inert; **tidak disisipkan melalui include/template HTML awal**. Manifest kecil berisi byte/hash/ukuran bagian dipin pada core dan 00_BrowserAssets.gs. Total paket menjadi **24 file: 17 .gs, 6 .html, 1 manifest**. Total data transfer pustaka memakai overhead Base64, bukan klaim seluruh paket lebih kecil; penghematan terutama pada inisialisasi dan fitur yang tidak digunakan.
 
-- `<?` menjadi `\u003c?`, dan `?>` menjadi `?\u003e` di sumber JavaScript. Browser mengembalikan nilai karakter semula saat mengeksekusi literal; pemroses HTML tidak melihat delimiter mentah.
-- Karakter kontrol C0 selain tab/CR/LF, serta DEL, ditulis sebagai Unicode escape, mempertahankan byte nilai runtime tanpa karakter kontrol mentah dalam HTML.
-- Penutup script literal yang dapat memutus elemen HTML ditolak saat build, termasuk variasi kapitalisasi. Esbuild sudah meng-escape penutup script milik vendor; guard juga melindungi source aplikasi yang digabung tanpa bundling.
+RPC getBrowserAsset memakai respond_/authorize_ yang sudah ada, hanya menerima whitelist tiga ID dan versi hash yang tepat. Setiap bagian paling banyak 32.768 karakter Base64; satu panggilan mengambil paling banyak delapan bagian, dua batch paralel per pustaka. Nama file tidak pernah diambil dari input pengguna. Panggilan ini read-only, tanpa penulisan Sheets, perubahan role, atau scope baru.
 
-Source setelah escaping diperiksa kembali dengan vm.Script dan dipakai oleh dist maupun preview. Tidak ada eval, loader baru, CDN, perubahan pustaka, atau modifikasi proses autentikasi. Helper ini ditujukan untuk source bundle yang dihasilkan proyek; jangan menjalankan encoding ulang setelah hasilnya dikirim sebagai HTML.
+Browser memeriksa ID, versi, urutan/rentang, panjang bagian, panjang byte dan SHA-256 yang **dipin di core**, lalu mendecode UTF-8 secara fatal. Kode baru ditambahkan lewat script.textContent setelah verifikasi; literal vendor tidak melewati tokenizer HTML/document.write. Tidak memakai eval, Blob URL, CDN, layanan font, credential baru atau penyimpanan persisten. Semua font dan fitur PDF/Excel/QR dipertahankan. Permintaan bersamaan berbagi satu promise dan pustaka disimpan hanya dalam memori halaman; kegagalan menghapus promise agar tindakan dapat dicoba ulang.
 
-Tes Node membandingkan nilai XML, regex, karakter biner, dan teks khusus sebelum/sesudah escaping, memeriksa idempotensi, guard penutup script, serta tidak adanya delimiter/kontrol mentah dalam artefak. Suite browser yang sudah ada tetap memeriksa parsing Excel asli, PDF kartu/data, decoding QR, CRUD, absensi manual/QR dan otorisasi.
+Respons hilang, terpotong, berubah dengan panjang sama, bagian tertukar atau versi berbeda ditolak sebelum eksekusi. Error muncul pada fitur terkait; Dashboard, Pengaturan dan absensi manual tetap dapat dipakai. Kamera tidak diminta sebelum QR lolos pemeriksaan dan tidak menyala terlambat setelah pengguna meninggalkan halaman scan.
 
-## Hasil lokal — 24 Oktober 2026
+## Bukti pengujian
 
-- Regresi sebelum perbaikan: dua tes iframe gagal dengan pesan document.write/SyntaxError persis seperti laporan. Setelah perbaikan: keduanya lulus.
-- `npm run check`: **81 tes backend/build dan 39 tes browser lulus**, nol gagal/dilewati. Termasuk ekspor Excel/PDF, kartu ID, QR, role, bootstrap dan navigasi.
-- `npm run build` terpisah: berhasil, 19 berkas; Scripts.html tidak mengandung delimiter XML atau kontrol biner mentah dan hanya memiliki satu penutup script.
-- `npx clasp status`: dijalankan, gagal dengan `Project settings not found` karena .clasp.json lokal tidak tersedia. Pemeriksaan offline `npx clasp -P .clasp.json.example status` berhasil memilih tepat 19 berkas dist, tanpa berkas lain.
-- `git diff --check` bersih. Seluruh source frontend/backend, dev, database, manifest, contoh ID, dependensi/lock dan gambar referensi identik dengan main 8de5fac. Perubahan hanya pada build, tes, dan dokumentasi.
-- Tidak ada migrasi, perubahan konfigurasi Google, clasp push, atau deployment yang dijalankan. Pengujian terhadap Web App Google Versi 6 belum dilakukan.
+- Sebelum pemisahan, literal ICC yang sengaja dipotong menghentikan seluruh bootstrap. Sesudah pemisahan, kerusakan payload PDF ditolak sebelum eksekusi sementara Dashboard/menu tetap berjalan, lalu pemuatan ulang berhasil.
+- Output build aktual dimasukkan lewat document.open/write/close dalam iframe lintas origin. SHA-256 body script di DOM harus sama persis dengan hasil build. Respons fixture menyatakan UTF-8, tanpa menghapus XML atau mengubah bundle.
+- Ketiga pustaka yang direkonstruksi melalui RPC dibandingkan byte/hash dengan kode yang benar-benar disisipkan ke DOM. ICC, font, Unicode dan tanda kutip tetap utuh; tidak hanya menguji sintaks Node.
+- Suite lama tetap memeriksa file PDF/Excel sebenarnya, ukuran kartu, QR decoder/kamera sintetis, otorisasi, CRUD dan absensi. Uji baru mencakup integritas, versi, path/rentang, deduplikasi, retry, dan pembatalan kamera.
 
-## Pemeriksaan dan pembaruan manual
+Tidak mengklaim penyebab pemotongan pada Google telah dibuktikan, atau deployment produksi sudah pulih. Akses read-only ke script.google.com dari cloud ditolak proxy HTTP 403/CONNECT; sumber VM/network deployment aktual belum diperoleh.
+
+Hasil final 26 Oktober 2026: **93 tes backend/build dan 49 tes Playwright lulus**, nol gagal/dilewati. `npm run build` terpisah berhasil, core Scripts.html **71.068 byte**. `npx clasp -P .clasp.json.example status` memilih tepat 24 file, tanpa melakukan koneksi/push ke proyek Google nyata. Tool audit menyatakan keempat sumber JavaScript valid dan hash/byte ketiga aset cocok manifest. `git diff --check` bersih; database, konfigurasi contoh ID, manifest/scopes, backend autentikasi, dashboard/HTML/CSS dan referensi desain tetap identik dengan main.
+
+## Membandingkan salinan VM dengan artefak
 
 ```sh
-npm ci
-npm run check
 npm run build
-npx clasp status
+node scripts/audit-htmlservice.mjs
+node scripts/audit-htmlservice.mjs /path/VM18.js
 ```
 
-Pertahankan .clasp.json lokal dan proyek/Spreadsheet ID yang sudah digunakan. Jika workspace baru tidak memiliki .clasp.json, status default akan gagal; itu tidak membatalkan build. `npx clasp -P .clasp.json.example status` dapat memeriksa daftar berkas secara offline, tetapi bukan bukti koneksi ke proyek Anda. Jangan menimpa konfigurasi lokal dengan contoh ID.
+Tool hanya membaca dan memeriksa sintaks, tidak mengeksekusi kode salinan. Laporan menampilkan byte, SHA-256, UTF-8, sintaks, kesamaan persis/prefix/suffix dan offset perbedaan; tidak mencetak source atau pesan parser yang dapat mengandung data sensitif. Cocokkan dengan build/commit yang benar; sourceURL pustaka baru berbentuk `sia-asset-pdf-<hash>.js`. Salinan yang cocok hanya sebagian menunjukkan perbedaan file, bukan dengan sendirinya membuktikan server memotongnya. Bandingkan ukuran/source browser asli sebelum copy dan hasil file sesudah copy.
 
-Setelah review, pemilik dapat menjalankan `npx clasp push` secara manual, memeriksa test deployment `/dev`, lalu memperbarui deployment `/exec` yang sama ke versi baru melalui Manage deployments. Uji admin dan guru secara terpisah, periksa Console tanpa SyntaxError, dashboard selesai memuat, serta menu Pengaturan Sekolah hanya untuk admin. Jika masih gagal, simpan sumber VM dan respons HTML yang telah disanitasi dari token/data pribadi untuk membandingkan transformasi transport sebenarnya.
+## Verifikasi manual Google setelah review
 
-Jangan menjalankan migrasi/initializer/reset atau mengganti ID untuk perbaikan ini. Push source saja tidak memperbarui versi deployment /exec yang dipin. Tidak ada clasp push atau deployment otomatis pada pekerjaan ini.
-
-Untuk mengambil bukti dari Versi 6: buka DevTools → Console, klik tautan VM18:178:1463 pada error untuk membuka Sources, lalu salin sekitar 100–200 karakter sebelum/sesudah kursor. Ambil sebelum menekan pretty-print `{}` agar lokasi tetap cocok. Nomor VM bisa berubah setelah reload; pakai tautan error terbaru. Jangan sertakan token, identitas, atau data pribadi. Bukti ini memungkinkan perbandingan langsung terhadap karakter yang berubah pada transport Google, tanpa operasi database.
+1. Pertahankan .clasp.json, Script ID, APP_SPREADSHEET_ID, Script Properties, manifest/scopes dan hak akses yang sudah digunakan. Jalankan npm ci, npm run check, npm run build dan clasp status. Pastikan **semua 24 file**, termasuk tiga Asset_*.html dan 00_BrowserAssets.gs, masuk paket; jangan hanya mengirim Scripts.html. Tidak ada migrasi/reset yang diperlukan.
+2. Pemilik menjalankan clasp push secara manual setelah review. Buka /dev dengan akun editor yang berwenang. Pilih execution context iframe aplikasi pada DevTools; pastikan Console tanpa SyntaxError, status GOOGLE SHEETS, identitas dan statistik nyata termuat, serta Pengaturan Sekolah tersedia bagi admin dan tersembunyi bagi guru. object window.SIA.vendors awalnya kosong.
+3. Uji Data Kelas, Data Siswa, dan absensi manual. Pada data uji yang disetujui, coba preview kartu, PDF kartu/data, Excel, dan kamera QR. Mulai scan tidak menyimpan kehadiran; periksa identitas lalu batalkan bila hanya memverifikasi. Periksa script[data-sia-asset] dan hash pada window.SIA.assetManifest. Uji kamera fisik HP/PC dan kebijakan iframe/CSP nyata; tes lokal tidak membuktikan izin tersebut.
+4. Bila aset gagal, catat pesan fitur/Console (termasuk kemungkinan CSP), coba ulang, dan pastikan Dashboard/menu/manual tetap berfungsi. Konflik versi meminta reload, bukan mengganti ID atau memperluas izin. Panggilan pertama lebih lambat karena transfer/verifikasi; panggilan berikutnya pada halaman yang sama memakai pustaka yang sudah dimuat.
+5. Setelah /dev lolos, pemilik memperbarui versi pada deployment /exec yang sama secara manual. Reload penuh dan ulangi pemeriksaan admin/guru serta ekspor/QR. Push tidak otomatis memperbarui versi /exec yang dipin.
+6. Jika SyntaxError masih muncul, klik tautan sumber error sebelum pretty-print dan simpan potongan di sekitar baris/kolom, byte/hash script asli serta file salinan, commit lokal, versi Node dan deployment. Jangan membagikan cookie/token/HAR penuh/data pribadi. Jalankan tool audit pada file salinan, lalu bandingkan dengan sumber browser untuk menentukan di tahap mana perbedaan terjadi.

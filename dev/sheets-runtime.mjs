@@ -109,6 +109,10 @@ export function backend({ email = 'admin@example.test', configured = true, overr
     console: { error: () => {} },
     PropertiesService: { getScriptProperties: () => ({ getProperty: (key) => scriptProperties.get(key) ?? null }) },
     Session: { getActiveUser: () => ({ getEmail: () => email }), getScriptTimeZone: () => 'Asia/Jakarta' },
+    HtmlService: { createHtmlOutputFromFile: (name) => {
+      if (!/^Asset_(qr|pdf|excel)$/.test(name)) throw new Error('Unknown local browser asset.');
+      return { getContent: () => readFileSync(`${base}dist/${name}.html`, 'utf8') };
+    } },
     SpreadsheetApp: { openById: () => book, flush: () => { if (++metrics.flushes === faults.failFlushAt) throw new Error('MOCK_FLUSH_FAILURE_PRIVATE'); } },
     Utilities: {
       getUuid: randomUUID,
@@ -122,6 +126,21 @@ export function backend({ email = 'admin@example.test', configured = true, overr
       waitLock: () => { if (metrics.locked) throw new Error('Busy'); metrics.locked = true; metrics.locks++; },
       releaseLock: () => { metrics.locked = false; }
     }) }
+  });
+  let browserAssets;
+  let browserAssetsLoaded = false;
+  Object.defineProperty(context, 'BrowserAssets_', {
+    configurable: true,
+    get: () => {
+      // Read on first asset RPC, after preview build completes; normal backend
+      // tests and bootstrap do not depend on generated files being present.
+      if (!browserAssetsLoaded) {
+        browserAssets = JSON.parse(readFileSync(`${base}.preview/browser-assets.json`, 'utf8'));
+        browserAssetsLoaded = true;
+      }
+      return browserAssets;
+    },
+    set: (value) => { browserAssets = value; browserAssetsLoaded = true; }
   });
   vm.runInContext(`var DatabaseSchema_ = ${JSON.stringify(schema)};`, context);
   for (const file of readdirSync(`${base}src/backend`).filter((name) => name.endsWith('.gs')).sort()) {

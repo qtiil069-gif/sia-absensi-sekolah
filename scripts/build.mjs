@@ -2,22 +2,22 @@ import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import vm from 'node:vm';
-import * as esbuild from 'esbuild';
 import { escapeHtmlServiceScript } from './htmlservice-script.mjs';
+import { buildBrowserAssets } from './browser-assets.mjs';
 
 export const root = fileURLToPath(new URL('../', import.meta.url));
 export async function build() {
   const read = (file) => readFile(path.join(root, file), 'utf8');
-  const frontendFiles = ['lib/dom.js', 'lib/router.js', 'lib/forms.js', 'lib/dialogs.js', 'lib/images.js', 'lib/files.js', 'lib/qr-camera.js', 'services/api.js', 'components/dashboard.js', 'components/table.js', 'components/student-cards.js', 'components/qr-scanner.js',
+  const frontendFiles = ['lib/dom.js', 'lib/router.js', 'lib/forms.js', 'lib/dialogs.js', 'lib/images.js', 'services/api.js', 'lib/asset-loader.js', 'lib/files.js', 'lib/qr-camera.js', 'components/dashboard.js', 'components/table.js', 'components/student-cards.js', 'components/qr-scanner.js',
     'pages/classes.js', 'pages/students.js', 'pages/attendance.js', 'pages/settings.js', 'app.js'];
   const [html, css, frontend, demo, schemaText, manifestText] = await Promise.all([
     read('src/frontend/index.html'), read('src/frontend/styles.css'),
     Promise.all(frontendFiles.map((name) => read(`src/frontend/${name}`))),
     read('dev/demo-transport.js'), read('database/schema.json'), read('src/appsscript.json')
   ]);
-  const vendors = await esbuild.build({ stdin: { contents: await read('src/frontend/lib/vendors.mjs'), resolveDir: root, loader: 'js' },
-    bundle: true, platform: 'browser', format: 'iife', target: 'es2020', write: false, minify: true, legalComments: 'inline', logLevel: 'silent' });
-  const js = escapeHtmlServiceScript([frontend[0], vendors.outputFiles[0].text, ...frontend.slice(1)].join('\n'));
+  const browserAssets = await buildBrowserAssets(root);
+  const pinnedAssets = `window.SIA.vendors = {};\nwindow.SIA.assetManifest = ${JSON.stringify(browserAssets.manifest)};`;
+  const js = escapeHtmlServiceScript([frontend[0], pinnedAssets, ...frontend.slice(1)].join('\n'));
   const manifest = JSON.parse(manifestText);
   const schema = JSON.parse(schemaText);
   new vm.Script(js);
@@ -44,10 +44,13 @@ export async function build() {
     write('dist/Scripts.html', `<script>\n${js}\n</script>`),
     write('dist/appsscript.json', JSON.stringify(manifest, null, 2) + '\n'),
     write('dist/00_Schema.gs', `// Generated from database/schema.json. Do not edit.\nvar DatabaseSchema_ = ${JSON.stringify(schema, null, 2)};\n`),
+    write('dist/00_BrowserAssets.gs', `// Generated integrity manifest. Do not edit.\nvar BrowserAssets_ = ${JSON.stringify(browserAssets.manifest, null, 2)};\n`),
+    ...browserAssets.assets.map(({ manifest, encoded }) => write(`dist/${manifest.file}.html`, encoded)),
+    write('.preview/browser-assets.json', JSON.stringify(browserAssets.manifest, null, 2) + '\n'),
     write('.preview/index.html', localHtml),
     ...backend.map(([name, code]) => write(`dist/${name}`, code))
   ]);
-  return { backendFiles: files.length + 1, schemaVersion: schema.version };
+  return { backendFiles: files.length + 2, schemaVersion: schema.version, browserAssets: Object.keys(browserAssets.manifest) };
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

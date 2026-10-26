@@ -65,7 +65,11 @@
         // Fetch again so a settings change applies to both preview and output.
         const fresh = await refresh();
         if (!fresh || !current()) return;
-        if (kind === 'pdf') window.SIA.files.saveBlob(await window.SIA.files.cardsPdf(fresh), 'kartu-id-siswa.pdf');
+        if (kind === 'pdf') {
+          ui.message('Menyiapkan PDF kartu…');
+          window.SIA.files.saveBlob(await window.SIA.files.cardsPdf(fresh), 'kartu-id-siswa.pdf');
+          ui.message('PDF kartu siap diunduh.');
+        }
         else {
           await Promise.all([...area.querySelectorAll('img')].map((img) => img.decode()));
           document.body.classList.add('printing-cards');
@@ -94,7 +98,8 @@
       ]) {
         const action = button(label, async () => {
           action.disabled = true;
-          try { window.SIA.files.saveBlob(await make(data), filename); }
+          ui.message('Menyiapkan berkas…');
+          try { window.SIA.files.saveBlob(await make(data), filename); ui.message('Berkas siap diunduh.'); }
           catch (error) { ui.message(error.message, true); }
           finally { action.disabled = false; }
         });

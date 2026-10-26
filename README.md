@@ -4,6 +4,10 @@ Aplikasi berbahasa Indonesia berbasis **Google Apps Script HTML Service dan Goog
 
 Navigasi memakai SPA dengan state di memori agar menu tetap berada dalam iframe HtmlService tanpa mengubah URL panel. Audit, regresi iframe, serta petunjuk memperbarui deployment yang sudah ada tersedia pada [perbaikan navigasi HtmlService](docs/navigation-htmlservice.md).
 
+Bootstrap kini terpisah dari pustaka PDF/Excel/QR: HTML awal sekitar 71 KB, pustaka dimuat saat diperlukan melalui RPC berotorisasi dan diverifikasi ukuran/SHA-256 sebelum dijalankan. Paket clasp berisi **24 file**, termasuk tiga Asset_*.html dan manifest integritas. Lihat [audit Base64, isolasi kegagalan, dan verifikasi /dev serta /exec](docs/htmlservice-bundle.md); tidak ada migrasi atau perubahan ID untuk perbaikan ini.
+
+Validasi lokal 26 Oktober 2026: **93 tes backend/build + 49 tes browser lulus**. Periksa ukuran/hash/sintaks artefak dengan `node scripts/audit-htmlservice.mjs`; tambahkan path file VM sebagai argumen untuk membandingkan salinan DevTools tanpa mengeksekusinya.
+
 Implementasi mengikuti [rencana dan panduan Tahap 3](docs/stage-3.md). Kartu ID berada di Data Siswa, scan QR di tab Absensi Siswa, dan hanya Pengaturan Sekolah ditambahkan ke sidebar.
 
 Modul yang telah diimplementasikan dan diuji lokal:

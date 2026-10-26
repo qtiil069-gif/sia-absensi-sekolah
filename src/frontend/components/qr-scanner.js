@@ -14,11 +14,12 @@
       stop(); const token = ++attempt; opening = true; start.disabled = true;
       message('Meminta izin kamera…');
       try {
-        const value = await window.SIA.qrCamera.start(video, facing.input.value, validate);
+        const value = await window.SIA.qrCamera.start(video, facing.input.value, validate,
+          () => token === attempt && context.isCurrent() && !host.hidden);
         if (token !== attempt || !context.isCurrent() || host.hidden) { window.SIA.qrCamera.stop(video, value); return; }
         controls = value; message('Arahkan QR kartu siswa ke kamera. Hasil scan belum menyimpan absensi.');
-      } catch {
-        if (token === attempt) message('Kamera tidak dapat dibuka. Periksa izin perangkat/browser dan kebijakan kamera iframe. Anda tetap dapat menggunakan pembaca USB/kode atau Absensi Manual.', true);
+      } catch (error) {
+        if (token === attempt) message(error.code === 'ASSET_LOAD_FAILED' ? error.message : 'Kamera tidak dapat dibuka. Periksa izin perangkat/browser dan kebijakan kamera iframe. Anda tetap dapat menggunakan pembaca USB/kode atau Absensi Manual.', true);
       } finally { opening = false; start.disabled = false; }
     }, 'coral');
     function stop() { attempt++; window.SIA.qrCamera.stop(video, controls); controls = null; start.disabled = opening; }
