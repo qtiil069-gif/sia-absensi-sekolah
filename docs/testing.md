@@ -1,8 +1,8 @@
 # Pengujian Tahap 3
 
-Regresi bundle HtmlService: [temuan, reproduksi document.write, dan petunjuk pembaruan](htmlservice-bundle.md). Mode iframe tambahan memodelkan pemrosesan XML sebelum document.write; dua tes admin/guru gagal dengan SyntaxError sebelum perbaikan escaping, lalu memeriksa bootstrap/dashboard, identitas, menu admin dan navigasi. Tes build memeriksa nilai runtime XML/regex/biner tetap identik, tidak ada delimiter XML/kontrol mentah, serta penolakan penutup script prematur. Ini pengujian lokal, bukan verifikasi deployment Google Versi 6.
+Audit terbaru HtmlService: [output build aktual, batas reproduksi, dan bukti browser yang diperlukan](htmlservice-bundle.md). Dua tes iframe kini menjalankan HTML utuh melalui document.write tanpa menghapus XML, memeriksa hash body script yang sama persis, bootstrap/dashboard, identitas, menu admin dan navigasi. Fixture memakai UTF-8 eksplisit. Uji kontrol negatif dengan bundle yang sengaja dipotong mendeteksi SyntaxError yang sama, tanpa menganggap pemotongan itu terjadi di Google. Bug /exec belum terulang dari output utuh; root cause produksi belum diketahui.
 
-Hasil perbaikan bundle 24 Oktober 2026: **81 tes backend/build + 39 tes browser lulus**; build final berhasil (19 file). Clasp status default terhalang .clasp.json yang tidak tersedia; status offline dengan konfigurasi contoh berhasil. Tidak ada perubahan ID atau operasi tulis Google.
+Baseline PR #7 pada 24 Oktober 2026: **81 tes backend/build + 39 tes browser lulus**; build berhasil (19 file). Pengujian XML pada baseline memakai transformasi fixture rekaan dan tidak membuktikan perilaku Google. Clasp status default terhalang .clasp.json yang tidak tersedia; status offline dengan konfigurasi contoh berhasil. Tidak ada perubahan ID atau operasi tulis Google.
 
 ## Regresi konfigurasi Spreadsheet setelah PR #5
 

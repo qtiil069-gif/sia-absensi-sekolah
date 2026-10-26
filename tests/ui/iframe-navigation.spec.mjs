@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { root } from '../../scripts/build.mjs';
 import playwrightConfig from '../../playwright.config.mjs';
 
@@ -50,14 +50,14 @@ async function htmlService(page, request, role = 'admin', { beforeRpc = () => {}
   const html = index.replace('<head>', '<head><base target="_top">')
     .replace("<?!= include_('Styles'); ?>", () => styles)
     .replace("<?!= include_('Scripts'); ?>", () => shim + scripts);
-  // Model a host HTML processing-instruction pass before document.write(). This
-  // deliberately differs from serving the untouched HTML directly: XML text in
-  // a JS literal must survive the transport, not become host markup.
+  // Write the actual resolved build, without guessing at host sanitization or
+  // deleting XML. JSON and escaping '<' only protect the OUTER writer script;
+  // the string passed to document.write is byte-for-byte the resolved HTML.
   const panel = documentWriteTransport
-    ? `<script>document.open();document.write(${JSON.stringify(html.replace(/<\?[\s\S]*?\?>/g, '')).replace(/</g, '\\u003c')});document.close();</script>`
+    ? `<script>document.open();document.write(${JSON.stringify(html).replace(/</g, '\\u003c')});document.close();</script>`
     : html;
-  await page.route(panelUrl, (route) => route.fulfill({ contentType: 'text/html', body: panel }));
-  await page.route(shellUrl, (route) => route.fulfill({ contentType: 'text/html', body:
+  await page.route(panelUrl, (route) => route.fulfill({ contentType: 'text/html; charset=utf-8', body: panel }));
+  await page.route(shellUrl, (route) => route.fulfill({ contentType: 'text/html; charset=utf-8', body:
     `<!doctype html><html><body style="margin:0"><iframe id="apps-script-frame"
       style="border:0;width:100vw;height:100vh" src="${panelUrl}"
       sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation"></iframe></body></html>` }));
@@ -68,6 +68,11 @@ async function htmlService(page, request, role = 'admin', { beforeRpc = () => {}
   const ui = page.frameLocator('#apps-script-frame');
   await expect(ui.locator('#stat-students')).toHaveText(role === 'guru' ? '36' : '288');
   const frame = page.frames().find((item) => item.url() === panelUrl);
+  if (documentWriteTransport) {
+    const body = scripts.slice('<script>'.length, -'</script>'.length);
+    const rendered = await frame.locator('script').last().textContent();
+    expect(createHash('sha256').update(rendered).digest('hex')).toBe(createHash('sha256').update(body).digest('hex'));
+  }
   const documentId = await frame.evaluate(() => window.__navigationProbe.documentId);
   const navigations = [];
   page.on('framenavigated', (item) => navigations.push(item.url()));
@@ -83,7 +88,7 @@ async function htmlService(page, request, role = 'admin', { beforeRpc = () => {}
 }
 
 for (const role of ['admin', 'guru']) {
-  test(`document.write transport preserves bundled XML and boots the ${role} iframe`, async ({ page, request }) => {
+  test(`document.write executes the unmodified generated bundle and boots the ${role} iframe`, async ({ page, request }) => {
     const { ui, assertStayed, rpcCalls } = await htmlService(page, request, role, { documentWriteTransport: true });
     await expect(ui.locator('#mode-badge')).toHaveText('GOOGLE SHEETS');
     await expect(ui.locator('#notice')).not.toContainText('Menyiapkan ruang sekolah Anda');
@@ -101,6 +106,26 @@ for (const role of ['admin', 'guru']) {
     await assertStayed();
   });
 }
+
+test('negative control: a deliberately truncated bundle produces SyntaxError and never starts bootstrap', async ({ page }) => {
+  const [index, styles, scripts] = await Promise.all(['Index.html', 'Styles.html', 'Scripts.html']
+    .map((name) => readFile(`${root}dist/${name}`, 'utf8')));
+  // Corrupt a real long string in the vendor bundle, leaving the HTML closing
+  // tag intact. This is a diagnostic control, not a model of Google's behavior.
+  const literal = /"[A-Za-z0-9+/]{200,}={0,2}"/.exec(scripts);
+  expect(literal).not.toBeNull();
+  const truncated = scripts.slice(0, literal.index + 100) + '\n</script>';
+  const html = index.replace("<?!= include_('Styles'); ?>", () => styles)
+    .replace("<?!= include_('Scripts'); ?>", () => truncated);
+  const errors = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.evaluate((html) => { document.open(); document.write(html); document.close(); }, html);
+  expect(errors).toEqual(["Failed to execute 'write' on 'Document': Invalid or unexpected token"]);
+  await expect(page.locator('#mode-badge')).toHaveText('MEMUAT');
+  await expect(page.locator('#notice')).toContainText('Menyiapkan ruang sekolah Anda');
+  await expect(page.locator('#settings-nav')).toBeHidden();
+  expect(await page.evaluate(() => window.SIA)).toBeUndefined();
+});
 
 test('all sidebar routes render within the same cross-origin HtmlService iframe', async ({ page, request }) => {
   const { ui, assertStayed } = await htmlService(page, request);

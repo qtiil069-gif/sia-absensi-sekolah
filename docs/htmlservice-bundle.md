@@ -1,59 +1,53 @@
-# Regresi SyntaxError pada bundle HtmlService
+# Audit SyntaxError HtmlService — 26 Oktober 2026
 
-Basis perbaikan: main `8de5fac` (merge PR #6), Node v24.19.0. Tidak ada perubahan backend, schema, role, ID, frontend, atau dependensi.
+Basis audit: main `8ea873c` (merge PR #7), Node v24.19.0. **SyntaxError pada /exec belum berhasil direproduksi dari output build utuh. Root cause produksi belum diketahui.** Tidak ada perubahan pada build, escaper, source aplikasi, database, role, ID, desain, dependensi, atau deployment dalam audit ini.
 
-## Temuan dan reproduksi
+## Koreksi terhadap reproduksi sebelumnya
 
-Bundle Stage 3 lolos `vm.Script` dan browser yang menerima HTML utuh secara langsung, termasuk document.write() tanpa pemrosesan tambahan. Karena itu, tes lama tidak membuktikan ketahanan paket terhadap pemrosesan HTML sebelum browser mengeksekusi script.
+PR #7 menguji fixture yang menghapus processing instruction XML secara buatan sebelum document.write. Penghapusan tersebut menghasilkan SyntaxError pada bundle lama, tetapi belum dibuktikan dilakukan oleh Google. Karena itu, hasil tes tersebut tidak membuktikan akar masalah deployment pengguna. Escaping XML/kontrol yang sudah ada dipertahankan; tidak ada alasan terverifikasi untuk mengubahnya lagi.
 
-Audit dist/Scripts.html menemukan empat pembuka `<?` dan lima penutup `?>` dalam literal XML milik pustaka PDF/Excel, serta 80 karakter kontrol biner mentah pada literal pustaka. Contoh rentan di ExcelJS adalah `h.push("<?xml"),o(h,f),h.push(` diikuti template literal berisi penutup XML. Jika sebuah pemroses HTML menghapus processing instruction di antara kedua delimiter tersebut, ia juga menghapus tanda kutip/kode JavaScript di tengahnya. Bundle yang semula valid menjadi tidak valid, sementara bootstrap belum sempat dijalankan. Dashboard tetap MEMUAT dan menu admin tetap tersembunyi; itu tidak membuktikan kegagalan otorisasi.
+Fixture sekarang memasukkan output Index/Styles/Scripts aktual, hanya menyelesaikan include template seperti backend, menambahkan shim RPC lokal, dan melindungi string milik wrapper penulis. String HTML yang diberikan kepada document.write tidak dihapus, dipotong, atau di-normalisasi. Skenario admin/guru tetap berjalan di iframe lintas origin; backend memakai .gs asli dengan Sheets sintetis di memori, bukan OAuth/Sheets Google nyata.
 
-Fixture iframe kini memiliki mode documentWriteTransport: setelah include Styles/Scripts diselesaikan, ia memodelkan satu pass penghapusan processing instruction XML, lalu menulis HTML ke dokumen melalui document.open/write/close. Wrapper luar memakai JSON dan escape `<`, sehingga tidak memperkenalkan penutupan script tambahan.
+## Temuan audit artefak aktual
 
-**Sebelum perbaikan**, kedua skenario admin/guru gagal di Chromium dengan pesan persis:
+| Artefak | Byte | SHA-256 |
+| --- | ---: | --- |
+| Index.html | 11010 | `9d7814bd025c085bc31011991d70659daf6d7e0696178e7df9872562e8a69d2c` |
+| Scripts.html | 3340452 | `2ae70a3fb8c14e4421b0dcd7bc9e786d0ab999e86b5349b8fac1929ab2b391e7` |
+| Styles.html | 23217 | `3c77516c8597bd7728d05f97d6d1ddfab19b991b2f5ee4ab7c35cf92aca3d15c` |
 
-```text
-Failed to execute 'write' on 'Document': Invalid or unexpected token
-```
+Ketiga berkas valid UTF-8, tanpa BOM, karakter pengganti U+FFFD, kontrol biner mentah, atau pemisah U+2028/U+2029. Body Scripts lolos vm.Script; tidak mengandung delimiter XML mentah dan berakhir lengkap sampai boot()/penutupan IIFE. Hanya ada satu penutup script HTML. Satu pembuka `<script>` tambahan berada di literal milik vendor; browser tetap mempertahankan seluruh body script secara identik, sehingga temuan itu sendiri bukan bukti pemotongan HTML.
 
-**Sesudah perbaikan**, keduanya harus memuat bootstrap/dashboard melalui backend .gs di memori, identitas akun, navigasi Data Siswa, dan menu/form Pengaturan Sekolah hanya untuk admin, tanpa pageerror atau navigasi keluar iframe.
+Frontend tidak memanggil document.write/eval atau menyisipkan innerHTML untuk bootstrap. Template Index menyisipkan Styles/Scripts melalui include_ yang sudah ada; tidak ada perubahan pada autentikasi atau routing. Baris 178 kolom 1463 pada Scripts lokal berada dekat literal base64 milik vendor dan lolos parser. Lokasi VM18 tidak otomatis sama dengan nomor baris berkas dist: VM adalah nama dinamis dari Chrome untuk script yang dibuat saat runtime. Diperlukan sumber VM aktual untuk menyamakan offset.
 
-Fixture adalah model pemrosesan transport, bukan implementasi lengkap atau rekaman internal Google. Sumber VM18/HTML respons Versi 6 belum tersedia pada pekerjaan ini. Mekanisme lokal di atas berhasil direproduksi; kecocokan persis dengan perubahan HTML yang dilakukan deployment Google tetap perlu dibandingkan dengan sumber DevTools aktual. URL Web App yang diberikan pengguna dicoba secara read-only, tetapi proxy jaringan menolak CONNECT dengan HTTP 403; Chromium menghasilkan ERR_TUNNEL_CONNECTION_FAILED. Respons aplikasi Google tidak berhasil dibaca, dan tidak ada deployment Google yang dijalankan.
+## Perubahan pengujian
 
-## Perbaikan build
+- Tes admin/guru kini menjalankan hasil build utuh lewat document.open/write/close, tanpa transformasi XML rekaan.
+- SHA-256 body script yang dibaca dari DOM browser harus sama dengan body Scripts.html asli. Selain itu, tes menunggu bootstrap/dashboard, identitas, navigasi siswa, serta Pengaturan Sekolah yang hanya tersedia bagi admin.
+- Pemeriksaan hash menemukan masalah fixture: wrapper yang disajikan tanpa charset membaca UTF-8 sebagai Windows-1252 (misalnya elipsis menjadi mojibake). Kedua respons fixture kini menyatakan `text/html; charset=utf-8`. Assertion hash gagal sebelum koreksi charset dan lulus setelahnya. **Itu masalah fixture, bukan root cause SyntaxError Google yang telah terbukti.**
+- Satu uji kontrol negatif sengaja memotong string panjang pada bundle aktual sambil mempertahankan penutup script. Chromium menghasilkan pesan persis `Failed to execute 'write' on 'Document': Invalid or unexpected token`; UI tetap MEMUAT, menu admin tersembunyi, dan bootstrap tidak dimulai. Ini membuktikan tes mendeteksi kelas kegagalan tersebut, bukan membuktikan Google memotong bundle.
 
-`scripts/htmlservice-script.mjs` menerapkan escaping setelah bundling:
+Tidak ada reproduksi gagal-sebelum/lulus-sesudah untuk bug produksi, sehingga audit ini tidak mengklaim bug /exec sudah diperbaiki. Tes build tentang escaping, nilai XML/regex/biner, dan penutup script tetap dijalankan.
 
-- `<?` menjadi `\u003c?`, dan `?>` menjadi `?\u003e` di sumber JavaScript. Browser mengembalikan nilai karakter semula saat mengeksekusi literal; pemroses HTML tidak melihat delimiter mentah.
-- Karakter kontrol C0 selain tab/CR/LF, serta DEL, ditulis sebagai Unicode escape, mempertahankan byte nilai runtime tanpa karakter kontrol mentah dalam HTML.
-- Penutup script literal yang dapat memutus elemen HTML ditolak saat build, termasuk variasi kapitalisasi. Esbuild sudah meng-escape penutup script milik vendor; guard juga melindungi source aplikasi yang digabung tanpa bundling.
+## Hasil pengujian — 26 Oktober 2026
 
-Source setelah escaping diperiksa kembali dengan vm.Script dan dipakai oleh dist maupun preview. Tidak ada eval, loader baru, CDN, perubahan pustaka, atau modifikasi proses autentikasi. Helper ini ditujukan untuk source bundle yang dihasilkan proyek; jangan menjalankan encoding ulang setelah hasilnya dikirim sebagai HTML.
+- `npm run check`: **81 tes backend/build dan 40 tes browser lulus**, nol gagal/dilewati.
+- `npm run build` terpisah: berhasil, 19 berkas (15 .gs, 3 .html, 1 manifest).
+- `git diff --check` bersih. Source aplikasi/backend, build/escaper, database, dev, manifest, dependensi/lock, contoh ID dan referensi dashboard tetap identik dengan main 8ea873c. Perubahan hanya pada satu berkas tes iframe dan dua dokumentasi.
+- Tidak ada clasp push, perubahan Google Sheets, migrasi, perubahan autentikasi/desain, atau deployment. Akses read-only ke URL Web App terhalang jaringan cloud.
 
-Tes Node membandingkan nilai XML, regex, karakter biner, dan teks khusus sebelum/sesudah escaping, memeriksa idempotensi, guard penutup script, serta tidak adanya delimiter/kontrol mentah dalam artefak. Suite browser yang sudah ada tetap memeriksa parsing Excel asli, PDF kartu/data, decoding QR, CRUD, absensi manual/QR dan otorisasi.
+## Bukti browser yang diperlukan
 
-## Hasil lokal — 24 Oktober 2026
+URL Web App yang diberikan sebelumnya dicoba kembali read-only pada 26 Oktober; proxy jaringan menghasilkan ERR_TUNNEL_CONNECTION_FAILED, sehingga respons Google dan sumber VM tidak dapat dibaca dari cloud ini.
 
-- Regresi sebelum perbaikan: dua tes iframe gagal dengan pesan document.write/SyntaxError persis seperti laporan. Setelah perbaikan: keduanya lulus.
-- `npm run check`: **81 tes backend/build dan 39 tes browser lulus**, nol gagal/dilewati. Termasuk ekspor Excel/PDF, kartu ID, QR, role, bootstrap dan navigasi.
-- `npm run build` terpisah: berhasil, 19 berkas; Scripts.html tidak mengandung delimiter XML atau kontrol biner mentah dan hanya memiliki satu penutup script.
-- `npx clasp status`: dijalankan, gagal dengan `Project settings not found` karena .clasp.json lokal tidak tersedia. Pemeriksaan offline `npx clasp -P .clasp.json.example status` berhasil memilih tepat 19 berkas dist, tanpa berkas lain.
-- `git diff --check` bersih. Seluruh source frontend/backend, dev, database, manifest, contoh ID, dependensi/lock dan gambar referensi identik dengan main 8de5fac. Perubahan hanya pada build, tes, dan dokumentasi.
-- Tidak ada migrasi, perubahan konfigurasi Google, clasp push, atau deployment yang dijalankan. Pengujian terhadap Web App Google Versi 6 belum dilakukan.
-
-## Pemeriksaan dan pembaruan manual
+1. Buka /exec yang gagal, lalu DevTools → Console. Klik tautan error terbaru seperti VM18:178:1463 untuk membuka Sources.
+2. Sebelum menekan pretty-print `{}`, salin sekitar 200 karakter sebelum/sesudah kursor. Sertakan pesan error lengkap serta baris/kolom. Nomor VM dapat berubah setelah reload.
+3. Dari folder yang benar-benar dipakai untuk push, kirim `git rev-parse HEAD`, `node --version`, serta ukuran/hash tiga berkas HTML. Perintah Node berikut bekerja tanpa koneksi Google dan tidak membaca credential:
 
 ```sh
-npm ci
-npm run check
-npm run build
-npx clasp status
+node -e "const fs=require('node:fs'),c=require('node:crypto');for(const n of ['Index.html','Scripts.html','Styles.html']){const b=fs.readFileSync('dist/'+n);console.log(n,b.length,c.createHash('sha256').update(b).digest('hex'))}"
 ```
 
-Pertahankan .clasp.json lokal dan proyek/Spreadsheet ID yang sudah digunakan. Jika workspace baru tidak memiliki .clasp.json, status default akan gagal; itu tidak membatalkan build. `npx clasp -P .clasp.json.example status` dapat memeriksa daftar berkas secara offline, tetapi bukan bukti koneksi ke proyek Anda. Jangan menimpa konfigurasi lokal dengan contoh ID.
+4. Jika tersedia, catat header Content-Type/charset respons userCodeAppPanel pada Network dan nomor versi deployment yang dipakai. Jangan membagikan cookie, token, HAR penuh, atau data pribadi.
 
-Setelah review, pemilik dapat menjalankan `npx clasp push` secara manual, memeriksa test deployment `/dev`, lalu memperbarui deployment `/exec` yang sama ke versi baru melalui Manage deployments. Uji admin dan guru secara terpisah, periksa Console tanpa SyntaxError, dashboard selesai memuat, serta menu Pengaturan Sekolah hanya untuk admin. Jika masih gagal, simpan sumber VM dan respons HTML yang telah disanitasi dari token/data pribadi untuk membandingkan transformasi transport sebenarnya.
-
-Jangan menjalankan migrasi/initializer/reset atau mengganti ID untuk perbaikan ini. Push source saja tidak memperbarui versi deployment /exec yang dipin. Tidak ada clasp push atau deployment otomatis pada pekerjaan ini.
-
-Untuk mengambil bukti dari Versi 6: buka DevTools → Console, klik tautan VM18:178:1463 pada error untuk membuka Sources, lalu salin sekitar 100–200 karakter sebelum/sesudah kursor. Ambil sebelum menekan pretty-print `{}` agar lokasi tetap cocok. Nomor VM bisa berubah setelah reload; pakai tautan error terbaru. Jangan sertakan token, identitas, atau data pribadi. Bukti ini memungkinkan perbandingan langsung terhadap karakter yang berubah pada transport Google, tanpa operasi database.
+Potongan VM membedakan kode terpotong, escape yang berubah, karakter tersisip, atau artefak deployment yang berbeda. Hash lokal membedakan hasil build/commit yang berbeda. Tanpa bukti tersebut, perubahan tambahan pada source/build hanya menjadi dugaan. Tidak perlu menjalankan migrasi, reset database, mengganti ID/role, atau melakukan deployment baru untuk mengambil bukti ini.
