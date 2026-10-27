@@ -5,11 +5,12 @@ import { build, root } from '../scripts/build.mjs';
 import vm from 'node:vm';
 import { createHash } from 'node:crypto';
 import { escapeHtmlServiceScript } from '../scripts/htmlservice-script.mjs';
+import { createRenderBuild, describeRenderContent } from '../scripts/render-build.mjs';
 
 test('build produces clasp package with valid manifest, private schema and no demo fixtures', async () => {
   await build();
   const files = await readdir(`${root}dist`);
-  assert.equal(files.length, (await readdir(`${root}src/backend`)).filter((name) => name.endsWith('.gs')).length + 9);
+  assert.equal(files.length, (await readdir(`${root}src/backend`)).filter((name) => name.endsWith('.gs')).length + 11);
   assert.ok(files.every((file) => /\.(gs|html|json)$/.test(file)));
   const manifest = JSON.parse(await readFile(`${root}dist/appsscript.json`, 'utf8'));
   assert.equal(manifest.webapp.access, 'MYSELF');
@@ -42,6 +43,23 @@ test('build produces clasp package with valid manifest, private schema and no de
   assert.ok(index.includes("<?!= include_('Styles'); ?>"));
   assert.ok(index.includes("<?!= include_('Scripts'); ?>"));
   assert.ok(!index.includes('<!-- SCRIPTS -->'));
+  const renderBuild = JSON.parse(JSON.stringify(context.RenderBuild_));
+  assert.equal(renderBuild.schema, 1);
+  assert.match(renderBuild.id, /^[a-f0-9]{64}$/);
+  assert.deepEqual(JSON.parse(await readFile(`${root}.preview/render-build.json`, 'utf8')), renderBuild);
+  const renderFiles = Object.fromEntries(await Promise.all(['Index', 'Styles', 'Scripts', 'RenderProbe'].map(async (name) =>
+    [name, await readFile(`${root}dist/${name}.html`, 'utf8')])));
+  for (const [name, content] of Object.entries(renderFiles)) assert.deepEqual(renderBuild.files[name], describeRenderContent(content));
+  assert.deepEqual(renderBuild.core, describeRenderContent(scripts.slice('<script>'.length, -'</script>'.length)),
+    'core digest includes the exact leading/trailing LF inside script tags');
+  const probe = renderFiles.RenderProbe;
+  new vm.Script(probe.slice('<script>'.length, -'</script>'.length));
+  assert.ok(!index.includes('RenderProbe'), 'diagnostics must not change the normal app HTML');
+  assert.ok(!scripts.includes(renderBuild.id), 'build identity is not inserted recursively into normal scripts');
+  const backendSource = await Promise.all((await readdir(`${root}src/backend`)).filter((name) => name.endsWith('.gs')).sort()
+    .map(async (name) => [name, await readFile(`${root}src/backend/${name}`, 'utf8')]));
+  assert.deepEqual(renderBuild, createRenderBuild({ files: renderFiles, backend: backendSource, manifest,
+    schema: JSON.parse(await readFile(`${root}database/schema.json`, 'utf8')) }));
   const browserAssets = JSON.parse(JSON.stringify(context.BrowserAssets_));
   assert.deepEqual(Object.keys(browserAssets), ['qr', 'pdf', 'excel']);
   assert.deepEqual(JSON.parse(await readFile(`${root}.preview/browser-assets.json`, 'utf8')), browserAssets);
@@ -63,6 +81,20 @@ test('build produces clasp package with valid manifest, private schema and no de
     new vm.Script(bytes.toString('utf8'), { filename: asset.file });
     assert.ok(!index.includes(asset.file), 'asset data is never included in the initial HTML');
   }
+});
+
+test('render build identity changes with emitted files, backend and configuration without Git or environment inputs', () => {
+  const input = { files: { Index: '<html></html>', Styles: '<style></style>', Scripts: '<script>\nconst school = "…";\n</script>',
+    RenderProbe: '<script>\nvoid 0;\n</script>' }, backend: [['90_Api.gs', 'function doGet() {}'], ['01_Config.gs', 'var ready = true;']],
+    manifest: { runtimeVersion: 'V8' }, schema: { version: 2 } };
+  const baseline = createRenderBuild(input);
+  assert.deepEqual(baseline, createRenderBuild({ ...input, backend: [...input.backend].reverse() }));
+  assert.deepEqual(baseline.core, describeRenderContent('\nconst school = "…";\n'));
+  for (const name of Object.keys(input.files)) assert.notEqual(baseline.id,
+    createRenderBuild({ ...input, files: { ...input.files, [name]: input.files[name].replace(/school|void|html|style/, 'changed') } }).id, name);
+  assert.notEqual(baseline.id, createRenderBuild({ ...input, backend: [...input.backend, ['92_Render.gs', 'function probe_() {}']] }).id);
+  assert.notEqual(baseline.id, createRenderBuild({ ...input, manifest: { runtimeVersion: 'changed' } }).id);
+  assert.notEqual(baseline.id, createRenderBuild({ ...input, schema: { version: 3 } }).id);
 });
 
 test('PDF asset retains the complete upstream ICC profile and four font literals outside initial HTML', async () => {

@@ -105,18 +105,34 @@ export function backend({ email = 'admin@example.test', configured = true, overr
     getSheetByName: (name) => tables.has(name) ? wrapSheet(name) : null,
     insertSheet: (name) => { tables.set(name, []); return wrapSheet(name); }
   };
+  const htmlOutput = (content) => ({
+    getContent: () => content,
+    setTitle(value) { this.title = value; return this; },
+    addMetaTag(name, value) { (this.meta || (this.meta = [])).push({ name, value }); return this; }
+  });
   const context = vm.createContext({
     console: { error: () => {} },
     PropertiesService: { getScriptProperties: () => ({ getProperty: (key) => scriptProperties.get(key) ?? null }) },
     Session: { getActiveUser: () => ({ getEmail: () => email }), getScriptTimeZone: () => 'Asia/Jakarta' },
-    HtmlService: { createHtmlOutputFromFile: (name) => {
-      if (!/^Asset_(qr|pdf|excel)$/.test(name)) throw new Error('Unknown local browser asset.');
-      return { getContent: () => readFileSync(`${base}dist/${name}.html`, 'utf8') };
-    } },
+    HtmlService: {
+      createHtmlOutput: htmlOutput,
+      createHtmlOutputFromFile: (name) => {
+        if (!/^(?:Asset_(qr|pdf|excel)|Index|Styles|Scripts|RenderProbe)$/.test(name)) throw new Error('Unknown local HTML file.');
+        return htmlOutput(readFileSync(`${base}dist/${name}.html`, 'utf8'));
+      },
+      createTemplateFromFile: (name) => {
+        if (name !== 'Index') throw new Error('Unknown local HTML template.');
+        return { evaluate: () => htmlOutput(context.HtmlService.createHtmlOutputFromFile(name).getContent()
+          .replace("<?!= include_('Styles'); ?>", () => context.include_('Styles'))
+          .replace("<?!= include_('Scripts'); ?>", () => context.include_('Scripts'))) };
+      }
+    },
     SpreadsheetApp: { openById: () => book, flush: () => { if (++metrics.flushes === faults.failFlushAt) throw new Error('MOCK_FLUSH_FAILURE_PRIVATE'); } },
     Utilities: {
       getUuid: randomUUID,
       base64Decode: (value) => [...Buffer.from(value, 'base64')],
+      base64Encode: (value) => Buffer.from(typeof value === 'string' ? value : Uint8Array.from(value)).toString('base64'),
+      newBlob: (value) => ({ getBytes: () => [...Buffer.from(value, 'utf8')] }),
       DigestAlgorithm: { SHA_256: 'sha256' }, Charset: { UTF_8: 'utf8' },
       computeDigest: (algorithm, value) => [...createHash('sha256').update(value).digest()],
       formatDate: (date, zone, format) => format === 'yyyy-MM-dd' ? date.toISOString().slice(0, 10) : date.toISOString()
@@ -141,6 +157,19 @@ export function backend({ email = 'admin@example.test', configured = true, overr
       return browserAssets;
     },
     set: (value) => { browserAssets = value; browserAssetsLoaded = true; }
+  });
+  let renderBuild;
+  let renderBuildLoaded = false;
+  Object.defineProperty(context, 'RenderBuild_', {
+    configurable: true,
+    get: () => {
+      if (!renderBuildLoaded) {
+        renderBuild = JSON.parse(readFileSync(`${base}.preview/render-build.json`, 'utf8'));
+        renderBuildLoaded = true;
+      }
+      return renderBuild;
+    },
+    set: (value) => { renderBuild = value; renderBuildLoaded = true; }
   });
   vm.runInContext(`var DatabaseSchema_ = ${JSON.stringify(schema)};`, context);
   for (const file of readdirSync(`${base}src/backend`).filter((name) => name.endsWith('.gs')).sort()) {

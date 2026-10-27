@@ -1,5 +1,9 @@
 # Pengujian Tahap 3
 
+Diagnostik /dev baca-saja: [cara mengambil bukti rendering tanpa JavaScript di Console](render-diagnostics.md). Manifest build dipin, sumber HtmlService dan hasil template diukur, lalu probe independen mengukur core DOM meskipun core gagal parsing. Laporan tidak mengambil identitas/data siswa. Hasil tes lokal tidak membuktikan renderer Google berfungsi.
+
+Validasi alat diagnostik 27 Oktober 2026: **105 tes backend/build + 59 tes Playwright lulus**, tanpa gagal/dilewati. Build berisi 27 file; status clasp offline memilih seluruhnya. Jalur normal, otorisasi dan fitur operasional tetap diuji; tidak ada operasi tulis Google atau deployment.
+
 Regresi Versi 9: [Unexpected identifier Pustaka](htmlservice-pustaka.md). Filter anotasi sourceURL yang dimodelkan eksplisit menghasilkan pesan/lokasi yang cocok sebelum perbaikan; dua tes admin/guru lalu lulus setelah suffix debug dihapus. Ini tidak membuktikan transformasi internal Google tanpa VM31 asli. `npm run check` terbaru lulus **96 tes backend/build dan 54 tes Playwright**, tanpa gagal/dilewati. Assertion hash tetap persis; teks penuh aset di DOM dibandingkan tanpa pemotongan suffix.
 
 Regresi hash setelah PR #8: [reproduksi checkout CRLF dan perbaikan newline build](htmlservice-line-endings.md). Helper inline menghasilkan LF sebelum HTML parsing; assertion SHA-256 iframe tetap persis tanpa normalisasi/trim. Tes Node dan browser baru mencakup LF, CRLF, lone CR, nilai template/escape/Unicode/Base64 dan deteksi perubahan isi.

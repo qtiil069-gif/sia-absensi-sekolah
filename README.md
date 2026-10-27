@@ -4,7 +4,9 @@ Aplikasi berbahasa Indonesia berbasis **Google Apps Script HTML Service dan Goog
 
 Navigasi memakai SPA dengan state di memori agar menu tetap berada dalam iframe HtmlService tanpa mengubah URL panel. Audit, regresi iframe, serta petunjuk memperbarui deployment yang sudah ada tersedia pada [perbaikan navigasi HtmlService](docs/navigation-htmlservice.md).
 
-Bootstrap kini terpisah dari pustaka PDF/Excel/QR: HTML awal sekitar 71 KB, pustaka dimuat saat diperlukan melalui RPC berotorisasi dan diverifikasi ukuran/SHA-256 sebelum dijalankan. Paket clasp berisi **24 file**, termasuk tiga Asset_*.html dan manifest integritas. Lihat [audit Base64, isolasi kegagalan, dan verifikasi /dev serta /exec](docs/htmlservice-bundle.md); tidak ada migrasi atau perubahan ID untuk perbaikan ini.
+Investigasi /dev yang masih MEMUAT: [mode diagnostik admin baca-saja](docs/render-diagnostics.md) membandingkan build, sumber HtmlService, hasil template dan core DOM. Query opt-in `?diagnostic=render` menyediakan laporan unduhan/salin tanpa JavaScript di Console. Paket diagnostik berisi 27 file; mode normal dan fitur operasional tetap sama. Penyebab Google belum terkonfirmasi oleh pengujian lokal.
+
+Bootstrap kini terpisah dari pustaka PDF/Excel/QR: HTML awal sekitar 71 KB, pustaka dimuat saat diperlukan melalui RPC berotorisasi dan diverifikasi ukuran/SHA-256 sebelum dijalankan. Paket saat ini berisi **27 file**, termasuk tiga Asset_*.html, manifest integritas dan diagnostik opt-in. Lihat [audit Base64, isolasi kegagalan, dan verifikasi /dev serta /exec](docs/htmlservice-bundle.md); tidak ada migrasi atau perubahan ID untuk perbaikan ini.
 
 Validasi lokal 26 Oktober 2026: **93 tes backend/build + 49 tes browser lulus**. Periksa ukuran/hash/sintaks artefak dengan `node scripts/audit-htmlservice.mjs`; tambahkan path file VM sebagai argumen untuk membandingkan salinan DevTools tanpa mengeksekusinya.
 
