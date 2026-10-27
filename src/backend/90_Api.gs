@@ -1,4 +1,5 @@
-function doGet() {
+function doGet(e) {
+  if (e && e.parameter && e.parameter.diagnostic === 'render') return renderDiagnostics_();
   return HtmlService.createTemplateFromFile('Index').evaluate()
     .setTitle('SIA Sekolah · Dashboard')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');

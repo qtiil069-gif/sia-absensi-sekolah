@@ -2,7 +2,7 @@
 
 ## Paket HtmlService dengan pustaka terpisah
 
-Build saat ini menghasilkan **24 file**: 17 .gs, 6 .html dan manifest. Tiga Asset_*.html berisi data pustaka statis, dan 00_BrowserAssets.gs memuat hash/ukuran yang harus cocok dengan core. Tinjau semua file melalui clasp status sebelum pemilik melakukan push manual. Tidak perlu migrasi atau mengganti ID/Script Properties untuk perbaikan bootstrap ini. Panduan /dev dan /exec: [isolasi bundle HtmlService](htmlservice-bundle.md). Bagian instalasi historis di bawah dapat menyebut jumlah file baseline lama.
+Build saat ini menghasilkan **27 file**: 19 .gs, 7 .html dan manifest. Tiga Asset_*.html berisi data pustaka statis, dan 00_BrowserAssets.gs memuat hash/ukuran yang harus cocok dengan core. Tinjau semua file melalui clasp status sebelum pemilik melakukan push manual. Tidak perlu migrasi atau mengganti ID/Script Properties untuk perbaikan bootstrap ini. Panduan /dev dan /exec: [isolasi bundle HtmlService](htmlservice-bundle.md). Untuk bukti server/browser tanpa JavaScript di Console, lihat [diagnostik opt-in admin](render-diagnostics.md). Bagian instalasi historis di bawah dapat menyebut jumlah file baseline lama.
 
 ## Pembaruan Tahap 3
 

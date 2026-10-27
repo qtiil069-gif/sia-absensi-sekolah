@@ -4,16 +4,18 @@ import path from 'node:path';
 import vm from 'node:vm';
 import { escapeHtmlServiceScript } from './htmlservice-script.mjs';
 import { buildBrowserAssets } from './browser-assets.mjs';
+import { createRenderBuild } from './render-build.mjs';
 
 export const root = fileURLToPath(new URL('../', import.meta.url));
 export async function build() {
   const read = (file) => readFile(path.join(root, file), 'utf8');
   const frontendFiles = ['lib/dom.js', 'lib/router.js', 'lib/forms.js', 'lib/dialogs.js', 'lib/images.js', 'services/api.js', 'lib/asset-loader.js', 'lib/files.js', 'lib/qr-camera.js', 'components/dashboard.js', 'components/table.js', 'components/student-cards.js', 'components/qr-scanner.js',
     'pages/classes.js', 'pages/students.js', 'pages/attendance.js', 'pages/settings.js', 'app.js'];
-  const [html, css, frontend, demo, schemaText, manifestText] = await Promise.all([
+  const [html, css, frontend, demo, schemaText, manifestText, probeSource] = await Promise.all([
     read('src/frontend/index.html'), read('src/frontend/styles.css'),
     Promise.all(frontendFiles.map((name) => read(`src/frontend/${name}`))),
-    read('dev/demo-transport.js'), read('database/schema.json'), read('src/appsscript.json')
+    read('dev/demo-transport.js'), read('database/schema.json'), read('src/appsscript.json'),
+    read('src/frontend/diagnostics/render-probe.js')
   ]);
   const browserAssets = await buildBrowserAssets(root);
   const pinnedAssets = `window.SIA.vendors = {};\nwindow.SIA.assetManifest = ${JSON.stringify(browserAssets.manifest)};`;
@@ -23,6 +25,8 @@ export async function build() {
   new vm.Script(js);
   const previewScript = escapeHtmlServiceScript(`window.SIA_PREVIEW = true;\n${demo}\n${js}`);
   new vm.Script(previewScript);
+  const probeScript = escapeHtmlServiceScript(probeSource);
+  new vm.Script(probeScript, { filename: 'render-probe.js' });
   const files = (await readdir(path.join(root, 'src/backend'))).filter((file) => file.endsWith('.gs')).sort();
   const backend = await Promise.all(files.map(async (name) => [name, await read(`src/backend/${name}`)]));
   backend.forEach(([name, code]) => new vm.Script(code, { filename: name }));
@@ -39,18 +43,22 @@ export async function build() {
     .replace('<!-- SCRIPTS -->', "<?!= include_('Scripts'); ?>");
   const localHtml = html.replace('<!-- STYLES -->', () => `<style>\n${css}\n</style>`)
     .replace('<!-- SCRIPTS -->', () => `<script>${previewScript}\n</script>`);
+  const renderFiles = { Index: gasHtml, Styles: `<style>\n${css}\n</style>`,
+    Scripts: `<script>\n${js}\n</script>`, RenderProbe: `<script>\n${probeScript}\n</script>` };
+  const renderBuild = createRenderBuild({ files: renderFiles, backend, manifest, schema });
   await Promise.all([
-    write('dist/Index.html', gasHtml), write('dist/Styles.html', `<style>\n${css}\n</style>`),
-    write('dist/Scripts.html', `<script>\n${js}\n</script>`),
+    ...Object.entries(renderFiles).map(([name, contents]) => write(`dist/${name}.html`, contents)),
     write('dist/appsscript.json', JSON.stringify(manifest, null, 2) + '\n'),
     write('dist/00_Schema.gs', `// Generated from database/schema.json. Do not edit.\nvar DatabaseSchema_ = ${JSON.stringify(schema, null, 2)};\n`),
     write('dist/00_BrowserAssets.gs', `// Generated integrity manifest. Do not edit.\nvar BrowserAssets_ = ${JSON.stringify(browserAssets.manifest, null, 2)};\n`),
+    write('dist/00_RenderBuild.gs', `// Generated render diagnostic manifest. Do not edit.\nvar RenderBuild_ = ${JSON.stringify(renderBuild, null, 2)};\n`),
     ...browserAssets.assets.map(({ manifest, encoded }) => write(`dist/${manifest.file}.html`, encoded)),
     write('.preview/browser-assets.json', JSON.stringify(browserAssets.manifest, null, 2) + '\n'),
+    write('.preview/render-build.json', JSON.stringify(renderBuild, null, 2) + '\n'),
     write('.preview/index.html', localHtml),
     ...backend.map(([name, code]) => write(`dist/${name}`, code))
   ]);
-  return { backendFiles: files.length + 2, schemaVersion: schema.version, browserAssets: Object.keys(browserAssets.manifest) };
+  return { backendFiles: files.length + 3, schemaVersion: schema.version, browserAssets: Object.keys(browserAssets.manifest), renderBuildId: renderBuild.id };
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

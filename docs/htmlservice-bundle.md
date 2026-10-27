@@ -1,5 +1,7 @@
 # HtmlService: isolasi bootstrap dan integritas pustaka
 
+Untuk laporan /dev yang tetap gagal setelah PR #10, gunakan [diagnostik rendering opt-in](render-diagnostics.md). Mode admin ini menyediakan build ID serta laporan sumber/template/browser tanpa menempel JavaScript ke Console; tidak menyatakan hipotesis sourceURL sudah terbukti pada Google.
+
 Investigasi terbaru `Unexpected identifier 'Pustaka'`: [lokasi tepat, reproduksi sourceURL dan batas bukti](htmlservice-pustaka.md). Suffix debug opsional dihapus, guard build menolak anotasi mentah, dan seluruh kode aset di DOM kini dibandingkan langsung dengan hash manifest.
 
 Untuk dua kegagalan hash setelah merge PR #8, lihat [audit newline checkout dan document.write](htmlservice-line-endings.md). Build kini mengkanoniskan newline inline ke LF agar sumber build identik dengan script DOM pada checkout LF maupun CRLF; pemeriksaan integritas tetap persis.
@@ -28,7 +30,7 @@ Scripts.html awal kini sekitar **71 KB**, baris terpanjang 541 karakter; tidak l
 | PDF | Unduh PDF kartu/data | 1.672.229 | 9 |
 | Excel | Unduh Excel | 946.834 | 5 |
 
-Build menghasilkan Asset_qr.html, Asset_pdf.html dan Asset_excel.html berisi data Base64 inert; **tidak disisipkan melalui include/template HTML awal**. Manifest kecil berisi byte/hash/ukuran bagian dipin pada core dan 00_BrowserAssets.gs. Total paket menjadi **24 file: 17 .gs, 6 .html, 1 manifest**. Total data transfer pustaka memakai overhead Base64, bukan klaim seluruh paket lebih kecil; penghematan terutama pada inisialisasi dan fitur yang tidak digunakan.
+Build menghasilkan Asset_qr.html, Asset_pdf.html dan Asset_excel.html berisi data Base64 inert; **tidak disisipkan melalui include/template HTML awal**. Manifest kecil berisi byte/hash/ukuran bagian dipin pada core dan 00_BrowserAssets.gs. Paket pemisahan vendor berisi **24 file: 17 .gs, 6 .html, 1 manifest**; diagnostik opt-in terbaru menambah tiga file menjadi **27**. Total data transfer pustaka memakai overhead Base64, bukan klaim seluruh paket lebih kecil; penghematan terutama pada inisialisasi dan fitur yang tidak digunakan.
 
 RPC getBrowserAsset memakai respond_/authorize_ yang sudah ada, hanya menerima whitelist tiga ID dan versi hash yang tepat. Setiap bagian paling banyak 32.768 karakter Base64; satu panggilan mengambil paling banyak delapan bagian, dua batch paralel per pustaka. Nama file tidak pernah diambil dari input pengguna. Panggilan ini read-only, tanpa penulisan Sheets, perubahan role, atau scope baru.
 
@@ -59,7 +61,7 @@ Tool hanya membaca dan memeriksa sintaks, tidak mengeksekusi kode salinan. Lapor
 
 ## Verifikasi manual Google setelah review
 
-1. Pertahankan .clasp.json, Script ID, APP_SPREADSHEET_ID, Script Properties, manifest/scopes dan hak akses yang sudah digunakan. Jalankan npm ci, npm run check, npm run build dan clasp status. Pastikan **semua 24 file**, termasuk tiga Asset_*.html dan 00_BrowserAssets.gs, masuk paket; jangan hanya mengirim Scripts.html. Tidak ada migrasi/reset yang diperlukan.
+1. Pertahankan .clasp.json, Script ID, APP_SPREADSHEET_ID, Script Properties, manifest/scopes dan hak akses yang sudah digunakan. Jalankan npm ci, npm run check, npm run build dan clasp status. Pastikan **semua 27 file**, termasuk tiga Asset_*.html, 00_BrowserAssets.gs dan file diagnostik, masuk paket; jangan hanya mengirim Scripts.html. Tidak ada migrasi/reset yang diperlukan.
 2. Pemilik menjalankan clasp push secara manual setelah review. Buka /dev dengan akun editor yang berwenang. Pilih execution context iframe aplikasi pada DevTools; pastikan Console tanpa SyntaxError, status GOOGLE SHEETS, identitas dan statistik nyata termuat, serta Pengaturan Sekolah tersedia bagi admin dan tersembunyi bagi guru. object window.SIA.vendors awalnya kosong.
 3. Uji Data Kelas, Data Siswa, dan absensi manual. Pada data uji yang disetujui, coba preview kartu, PDF kartu/data, Excel, dan kamera QR. Mulai scan tidak menyimpan kehadiran; periksa identitas lalu batalkan bila hanya memverifikasi. Periksa script[data-sia-asset] dan hash pada window.SIA.assetManifest. Uji kamera fisik HP/PC dan kebijakan iframe/CSP nyata; tes lokal tidak membuktikan izin tersebut.
 4. Bila aset gagal, catat pesan fitur/Console (termasuk kemungkinan CSP), coba ulang, dan pastikan Dashboard/menu/manual tetap berfungsi. Konflik versi meminta reload, bukan mengganti ID atau memperluas izin. Panggilan pertama lebih lambat karena transfer/verifikasi; panggilan berikutnya pada halaman yang sama memakai pustaka yang sudah dimuat.
