@@ -6,11 +6,13 @@ Navigasi memakai SPA dengan state di memori agar menu tetap berada dalam iframe 
 
 Investigasi /dev yang masih MEMUAT: [mode diagnostik admin baca-saja](docs/render-diagnostics.md) membandingkan build, sumber HtmlService, hasil template dan core DOM. Query opt-in `?diagnostic=render` menyediakan laporan unduhan/salin tanpa JavaScript di Console. Paket diagnostik berisi 27 file; mode normal dan fitur operasional tetap sama. Penyebab Google belum terkonfirmasi oleh pengujian lokal.
 
-Bootstrap kini terpisah dari pustaka PDF/Excel/QR: HTML awal sekitar 71 KB, pustaka dimuat saat diperlukan melalui RPC berotorisasi dan diverifikasi ukuran/SHA-256 sebelum dijalankan. Paket saat ini berisi **27 file**, termasuk tiga Asset_*.html, manifest integritas dan diagnostik opt-in. Lihat [audit Base64, isolasi kegagalan, dan verifikasi /dev serta /exec](docs/htmlservice-bundle.md); tidak ada migrasi atau perubahan ID untuk perbaikan ini.
+Bootstrap kini terpisah dari pustaka PDF/Excel/QR: HTML awal sekitar 80 KB, pustaka dimuat saat diperlukan melalui RPC berotorisasi dan diverifikasi ukuran/SHA-256 sebelum dijalankan. Paket saat ini berisi **27 file**, termasuk tiga Asset_*.html, manifest integritas dan diagnostik opt-in. Lihat [audit Base64, isolasi kegagalan, dan verifikasi /dev serta /exec](docs/htmlservice-bundle.md); tidak ada migrasi atau perubahan ID untuk perbaikan ini.
 
-Validasi lokal 26 Oktober 2026: **93 tes backend/build + 49 tes browser lulus**. Periksa ukuran/hash/sintaks artefak dengan `node scripts/audit-htmlservice.mjs`; tambahkan path file VM sebagai argumen untuk membandingkan salinan DevTools tanpa mengeksekusinya.
+Validasi lokal 28 Oktober 2026: **105 tes backend/build + 75 tes browser lulus**. Periksa ukuran/hash/sintaks artefak dengan `node scripts/audit-htmlservice.mjs`; tambahkan path file VM sebagai argumen untuk membandingkan salinan DevTools tanpa mengeksekusinya.
 
 Implementasi mengikuti [rencana dan panduan Tahap 3](docs/stage-3.md). Kartu ID berada di Data Siswa, scan QR di tab Absensi Siswa, dan hanya Pengaturan Sekolah ditambahkan ke sidebar.
+
+[Penyempurnaan kartu ID dan notifikasi](docs/kartu-id-notifikasi.md) menambahkan kartu biru royal/biru tua/kuning/putih dengan tata letak dan font preview–PDF yang sama, unggahan logo transparan, serta toast hasil backend untuk tindakan operasional. Tidak memerlukan migrasi atau perubahan token QR.
 
 Modul yang telah diimplementasikan dan diuji lokal:
 

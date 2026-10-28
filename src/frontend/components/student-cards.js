@@ -2,19 +2,28 @@
   const { element } = window.SIA.dom;
   const { button, field } = window.SIA.forms;
   function image(src, alt, className) {
-    if (!src) return element('div', 'Foto siswa', className + ' photo-placeholder');
+    if (!src) return element('div', 'FOTO SISWA', className + ' photo-placeholder');
     const img = element('img', undefined, className); img.src = src; img.alt = alt; return img;
   }
   function cardNode(school, card) {
+    const layout = window.SIA.cardLayout;
+    const content = layout.content(school, card);
     const node = element('article', undefined, 'id-card');
+    node.style.width = layout.width + 'mm'; node.style.height = layout.height + 'mm';
+    for (const decoration of layout.decorations) {
+      const shape = layout.place(element('div', undefined, 'id-card-decoration'), decoration);
+      shape.style.backgroundColor = decoration.color; shape.setAttribute('aria-hidden', 'true'); node.append(shape);
+    }
     const header = element('header', undefined, 'id-card-header');
-    if (school.logo) header.append(image(school.logo, 'Logo ' + school.name, 'id-school-logo'));
-    const schoolName = element('h3', school.name); if (school.name.length > 60) { schoolName.style.fontSize = '8px'; schoolName.style.webkitLineClamp = '3'; }
-    header.append(schoolName, element('p', school.identity));
-    node.append(header, image(card.photo, 'Foto ' + card.name, 'id-photo'), element('strong', card.name, 'id-name'),
-      element('p', 'NISN: ' + (card.nisn || 'Belum diisi'), 'id-nisn'), element('p', 'Kelas: ' + card.className, 'id-class'),
-      image(card.qrImage, 'QR unik ' + card.name, 'id-qr'), element('footer', school.address));
-    const name = node.querySelector('.id-name'); if (card.name.length > 55) name.style.fontSize = card.name.length > 80 ? '7px' : '8px';
+    if (school.logo) header.append(layout.place(image(school.logo, 'Logo ' + school.name, 'id-school-logo'), layout.boxes.logo));
+    header.append(layout.textNode(element('p', undefined, 'id-card-title'), content.title),
+      layout.textNode(element('h3'), content.schoolName), layout.textNode(element('p', undefined, 'id-school-identity'), content.identity));
+    const address = layout.textNode(element('footer'), content.address);
+    address.title = school.address;
+    node.append(header, layout.place(image(card.photo, 'Foto ' + card.name, 'id-photo'), layout.boxes.photo),
+      layout.textNode(element('strong', undefined, 'id-name'), content.name), layout.textNode(element('p', undefined, 'id-nisn'), content.nisn),
+      layout.textNode(element('p', undefined, 'id-class'), content.className), layout.place(image(card.qrImage, 'QR unik ' + card.name, 'id-qr'), layout.boxes.qr),
+      address);
     return node;
   }
   async function open(context, rooms, selection, onClose = () => {}, defaultClass = '') {

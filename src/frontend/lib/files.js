@@ -7,26 +7,35 @@
     setTimeout(() => URL.revokeObjectURL(url), 10000);
   }
   async function cardImages(data) {
-    await window.SIA.assets.load('qr');
+    await Promise.all([window.SIA.assets.load('qr'), window.SIA.cardLayout.prepareFont()]);
     return Promise.all(data.cards.map(async (card) => ({ ...card,
       qrImage: await window.SIA.vendors.QRCode.toDataURL(card.qr, { scale: 8, margin: 4, errorCorrectionLevel: 'M' }) })));
   }
   function cardDefinition(school, cards) {
-    return { pageSize: { width: mm(54), height: mm(85.6) }, pageMargins: [0, 0, 0, 0],
+    const layout = window.SIA.cardLayout;
+    const text = (box) => ({ columns: [{ width: mm(box.w), text: box.text, bold: !!box.bold, color: box.color,
+      fontSize: mm(box.fontSize), lineHeight: 1, alignment: 'center' }], columnGap: 0,
+    absolutePosition: { x: mm(box.x), y: mm(box.y) } });
+    const image = (source, box, crop = false) => ({ columns: [{ width: mm(box.w), image: source,
+      ...(crop ? { cover: { width: mm(box.w), height: mm(box.h), align: 'center', valign: 'center' } } : { fit: [mm(box.w), mm(box.h)] }),
+      alignment: 'center' }], columnGap: 0, absolutePosition: { x: mm(box.x), y: mm(box.y) } });
+    return { pageSize: { width: mm(layout.width), height: mm(layout.height) }, pageMargins: [0, 0, 0, 0],
       defaultStyle: { font: 'Roboto', fontSize: 7 }, info: { title: 'Kartu ID Siswa' },
-      content: cards.map((card, index) => ({ pageBreak: index ? 'before' : undefined, stack: [
-        { canvas: [{ type: 'rect', x: 0, y: 0, w: mm(54), h: 62, color: '#f9dfd3' }], absolutePosition: { x: 0, y: 0 } },
-        ...(school.logo ? [{ image: school.logo, fit: [22, 22], absolutePosition: { x: mm(27) - 11, y: 6 } }] : []),
-        { text: school.name, bold: true, fontSize: school.name.length > 60 ? 6 : 8, width: mm(48), alignment: 'center', absolutePosition: { x: mm(3), y: school.logo ? 31 : 12 } },
-        { text: school.identity.slice(0, 65), fontSize: 5, alignment: 'center', width: mm(48), absolutePosition: { x: mm(3), y: 52 } },
-        ...(card.photo ? [{ image: card.photo, fit: [46, 58], absolutePosition: { x: mm(27) - 23, y: 68 } }] :
-          [{ text: 'FOTO SISWA', color: '#7f8e81', fontSize: 7, absolutePosition: { x: mm(18), y: 92 } }]),
-        { text: card.name, bold: true, fontSize: card.name.length > 55 ? 6 : 8, alignment: 'center', width: mm(48), absolutePosition: { x: mm(3), y: 130 } },
-        { text: 'NISN: ' + (card.nisn || 'Belum diisi'), fontSize: 6.5, alignment: 'center', width: mm(48), absolutePosition: { x: mm(3), y: 154 } },
-        { text: 'Kelas: ' + card.className, fontSize: 7, alignment: 'center', width: mm(48), absolutePosition: { x: mm(3), y: 165 } },
-        { image: card.qrImage, width: 44, height: 44, absolutePosition: { x: mm(27) - 22, y: 177 } },
-        { text: school.address.slice(0, 120), fontSize: 4.5, alignment: 'center', width: mm(48), absolutePosition: { x: mm(3), y: 227 } }
-      ] })) };
+      content: cards.map((card, index) => {
+        const content = layout.content(school, card);
+        return { pageBreak: index ? 'before' : undefined, stack: [
+          { canvas: [{ type: 'rect', x: 0, y: 0, w: mm(layout.width), h: mm(layout.height), color: layout.colors.white },
+            ...layout.decorations.map((shape) => ({ type: 'rect', x: mm(shape.x), y: mm(shape.y), w: mm(shape.w), h: mm(shape.h), color: shape.color })),
+            ...(!card.photo ? [{ type: 'rect', x: mm(layout.boxes.photo.x), y: mm(layout.boxes.photo.y),
+              w: mm(layout.boxes.photo.w), h: mm(layout.boxes.photo.h), color: layout.colors.soft }] : [])],
+          absolutePosition: { x: 0, y: 0 } },
+          ...(school.logo ? [image(school.logo, layout.boxes.logo)] : []),
+          text(content.title), text(content.schoolName), text(content.identity),
+          ...(card.photo ? [image(card.photo, layout.boxes.photo, true)] :
+            [text({ ...layout.boxes.photo, y: layout.boxes.photo.y + 9, text: 'FOTO SISWA', fontSize: 1.8, color: layout.colors.navy })]),
+          text(content.name), text(content.nisn), text(content.className), image(card.qrImage, layout.boxes.qr), text(content.address)
+        ] };
+      }) };
   }
   async function cardsPdf(data) {
     await window.SIA.assets.load('pdf');

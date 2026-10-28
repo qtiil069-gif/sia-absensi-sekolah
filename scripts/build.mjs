@@ -9,14 +9,15 @@ import { createRenderBuild } from './render-build.mjs';
 export const root = fileURLToPath(new URL('../', import.meta.url));
 export async function build() {
   const read = (file) => readFile(path.join(root, file), 'utf8');
-  const frontendFiles = ['lib/dom.js', 'lib/router.js', 'lib/forms.js', 'lib/dialogs.js', 'lib/images.js', 'services/api.js', 'lib/asset-loader.js', 'lib/files.js', 'lib/qr-camera.js', 'components/dashboard.js', 'components/table.js', 'components/student-cards.js', 'components/qr-scanner.js',
+  const frontendFiles = ['lib/dom.js', 'lib/router.js', 'lib/forms.js', 'lib/toasts.js', 'lib/dialogs.js', 'lib/images.js', 'services/api.js', 'lib/asset-loader.js', 'lib/card-layout.js', 'lib/files.js', 'lib/qr-camera.js', 'components/dashboard.js', 'components/table.js', 'components/student-cards.js', 'components/qr-scanner.js',
     'pages/classes.js', 'pages/students.js', 'pages/attendance.js', 'pages/settings.js', 'app.js'];
-  const [html, css, frontend, demo, schemaText, manifestText, probeSource] = await Promise.all([
-    read('src/frontend/index.html'), read('src/frontend/styles.css'),
+  const [html, styleSources, frontend, demo, schemaText, manifestText, probeSource] = await Promise.all([
+    read('src/frontend/index.html'), Promise.all(['styles.css', 'card-styles.css', 'toast-styles.css'].map((name) => read(`src/frontend/${name}`))),
     Promise.all(frontendFiles.map((name) => read(`src/frontend/${name}`))),
     read('dev/demo-transport.js'), read('database/schema.json'), read('src/appsscript.json'),
     read('src/frontend/diagnostics/render-probe.js')
   ]);
+  const css = styleSources.join('\n');
   const browserAssets = await buildBrowserAssets(root);
   const pinnedAssets = `window.SIA.vendors = {};\nwindow.SIA.assetManifest = ${JSON.stringify(browserAssets.manifest)};`;
   const js = escapeHtmlServiceScript([frontend[0], pinnedAssets, ...frontend.slice(1)].join('\n'));

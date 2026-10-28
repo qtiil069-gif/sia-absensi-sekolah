@@ -27,13 +27,14 @@ Popup kartu selalu membaca pengaturan terbaru. Saat tombol cetak atau PDF diteka
 
 Kolom lama Siswa tetap sama. Data tambahan masuk ke tab baru ProfilSiswa. Field wali bersifat opsional agar data lama tetap dapat digunakan. Nomor wali divalidasi 8–18 digit, dengan kode negara opsional; nol awal dan tanda plus ditampilkan sebagai teks. Hanya Admin yang mengedit data; Guru hanya membaca siswa dalam kelas wali/penugasan aktifnya.
 
-Foto/logo dipilih dari JPEG, PNG, atau WebP maksimal 5 MB di browser, diraster ulang/diperkecil menjadi JPEG sebelum dikirim sehingga metadata foto tidak disertakan. Payload backend menerima PNG/JPEG dengan signature yang sesuai, maksimal 28.000 byte dan 40.000 karakter data URL. Foto tidak disimpan sebagai file publik atau URL eksternal: satu sel Sheets menyimpan satu gambar kecil, di bawah batas 50.000 karakter per sel. Ini pilihan untuk skala 100–500 siswa; uji latensi dengan jumlah foto nyata sebelum operasional. Belum ada penyimpanan foto resolusi penuh di Drive.
+Foto/logo dipilih dari JPEG, PNG, atau WebP maksimal 5 MB di browser lalu diraster ulang/diperkecil sehingga metadata foto tidak disertakan. Foto siswa dikirim sebagai JPEG; logo dikirim sebagai PNG untuk mempertahankan transparansi. Logo lama yang sudah tersimpan sebagai JPEG tidak diubah otomatis; unggah ulang berkas logo transparan asli melalui Pengaturan Sekolah jika diperlukan. Payload backend menerima PNG/JPEG dengan signature yang sesuai, maksimal 28.000 byte dan 40.000 karakter data URL. Foto tidak disimpan sebagai file publik atau URL eksternal: satu sel Sheets menyimpan satu gambar kecil, di bawah batas 50.000 karakter per sel. Ini pilihan untuk skala 100–500 siswa; uji latensi dengan jumlah foto nyata sebelum operasional. Belum ada penyimpanan foto resolusi penuh di Drive.
 
 Data kontak wali termasuk data pribadi. Pembacaan/export mengikuti cakupan akun. Model sharing file Sheets masih harus ditinjau: USER_ACCESSING dapat memberi pengguna izin langsung pada file, di luar pembatasan UI aplikasi. Jangan mempublikasikan spreadsheet, backup, kartu, atau hasil ekspor secara sembarangan.
 
 ## Kartu ID
 
 - Ukuran portrait **54 × 85,6 mm** pada CSS cetak dan ukuran setiap halaman PDF.
+- Desain kartu memakai biru royal, biru tua, kuning, dan putih. Teks **KARTU ID SISWA** berada tepat di bawah area logo. Nama, logo, alamat, dan identitas sekolah tetap berasal dari Pengaturan Sekolah.
 - Berisi logo/nama sekolah, foto siswa, nama, NISN, kelas, QR unik, serta alamat/identitas sekolah dalam area footer/header.
 - Foto atau NISN yang belum diisi diberi penanda jelas pada preview, bukan data siswa rekaan. Petugas perlu melengkapi/memeriksa sebelum mencetak.
 - Cetak individual dari baris siswa, atau massal satu kelas aktif dari toolbar. Guru hanya dapat menyiapkan kartu siswa aktif di kelas yang diizinkan; siswa nonaktif/kelas di luar cakupan ditolak.
@@ -41,6 +42,12 @@ Data kontak wali termasuk data pribadi. Pembacaan/export mengikuti cakupan akun.
 - PDF dibuat dengan pdfmake dan font Roboto yang dibundel. Excel menggunakan ExcelJS; QR menggunakan qrcode. Seluruh proses berjalan lokal di browser tanpa layanan pembuat QR/PDF/CDN/font eksternal. Font Roboto memiliki batas cakupan aksara; periksa nama dengan aksara khusus pada output sebelum cetak resmi.
 
 Token QR acak UUID dibuat server dan disimpan pada profil. Payload `SIA-ID:1:<token>` tidak berisi nama/NISN/nomor wali. Token tetap sama saat cetak ulang. QR adalah pengenal siswa, **bukan autentikasi petugas atau bukti kehadiran**. Salinan kartu dapat disalin orang lain; konfirmasi petugas tetap wajib. Penggantian/revokasi token melalui UI belum disediakan.
+
+## Notifikasi tindakan
+
+Data Kelas dan Data Siswa menampilkan toast berbeda untuk penambahan, pembaruan, dan penonaktifan yang telah dikonfirmasi backend. Penonaktifan tetap memerlukan konfirmasi dan tidak menghapus riwayat. Absensi Manual/QR serta pembaruan Pengaturan Sekolah juga menampilkan hasil backend. Validasi QR hanya mengonfirmasi identitas; toast absensi baru muncul setelah petugas mengonfirmasi dan backend menyimpan kehadiran. Siswa yang sudah tercatat tetap mendapat peringatan duplikasi, tanpa toast sukses baru.
+
+Toast sukses berwarna hijau lembut dengan ikon centang; kegagalan berwarna merah lembut. Satu toast tampil pada satu waktu, pesan identik yang masih terlihat tidak digandakan, dan pengguna dapat menutupnya. Toast juga terlihat di dalam popup konfirmasi, tidak memindahkan fokus, serta disembunyikan saat cetak. Pesan inline lama tetap tersedia untuk pemeriksaan lebih lama; teks dinamis tidak diproses sebagai HTML. Tidak ada retry tulis otomatis atau perubahan otorisasi/validasi backend.
 
 ## Ekspor Excel/PDF
 

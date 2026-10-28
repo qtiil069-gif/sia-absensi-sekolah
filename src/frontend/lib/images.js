@@ -15,9 +15,9 @@
       for (let attempt = 0; attempt < 12; attempt++) {
         canvas.width = width; canvas.height = height;
         const context = canvas.getContext('2d');
-        context.fillStyle = '#ffffff'; context.fillRect(0, 0, width, height);
+        if (!logo) { context.fillStyle = '#ffffff'; context.fillRect(0, 0, width, height); }
         context.drawImage(image, 0, 0, width, height);
-        const value = canvas.toDataURL('image/jpeg', Math.max(.35, .85 - attempt * .07));
+        const value = logo ? canvas.toDataURL('image/png') : canvas.toDataURL('image/jpeg', Math.max(.35, .85 - attempt * .07));
         if (value.length <= 37300) return value;
         width = Math.max(60, Math.round(width * .85)); height = Math.max(60, Math.round(height * .85));
       }
@@ -29,7 +29,7 @@
     const input = element('input'); input.type = 'file'; input.accept = 'image/jpeg,image/png,image/webp'; input.setAttribute('aria-label', label);
     const preview = element('img'); preview.alt = label;
     let data = initial; let error = null; let pending = Promise.resolve();
-    const info = element('span', 'Gambar diperkecil sebelum disimpan; metadata foto tidak disertakan.');
+    const info = element('span', logo ? 'Gunakan PNG atau WebP transparan. Transparansi dipertahankan; latar logo lama tidak dihapus otomatis.' : 'Gambar diperkecil sebelum disimpan; metadata foto tidak disertakan.');
     const render = () => { preview.hidden = !data; if (data) preview.src = data; else preview.removeAttribute('src'); };
     node.append(element('span', label), preview, input, button('Hapus ' + label.toLowerCase(), () => { data = ''; error = null; input.value = ''; render(); }), info);
     input.addEventListener('change', () => {

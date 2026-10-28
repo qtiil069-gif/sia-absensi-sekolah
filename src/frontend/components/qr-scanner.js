@@ -41,13 +41,15 @@
             const data = await context.rpc('saveQrAttendance', { ...selection, qr, expectedRevision: result.expectedRevision });
             if (!context.isCurrent()) return;
             context.onSaved(data); popup.close(); message('Kehadiran ' + student.name + ' berhasil disimpan.');
-          } catch (error) { if (popup.node.open) popup.message(error.message, true); }
+            window.SIA.toast.success('Absensi berhasil tersimpan.');
+          } catch (error) { if (context.isCurrent() && popup.node.open) { popup.message(error.message, true); window.SIA.toast.error(error.message); } }
           finally { saving = false; }
         }, 'coral');
         if (result.status) { popup.message('Siswa sudah tercatat (' + result.status + ') pada sesi ini. Gunakan Absensi Manual untuk koreksi.'); confirm.disabled = true; }
         else popup.message('Periksa foto dan identitas siswa, lalu konfirmasi untuk menyimpan Hadir.');
         popup.actions.append(confirm);
-      } catch (error) { if (context.isCurrent()) message(error.message, true); }
+        if (!result.status) window.SIA.toast.success('QR berhasil dipindai. Identitas siswa tervalidasi.');
+      } catch (error) { if (context.isCurrent() && !host.hidden) { message(error.message, true); window.SIA.toast.error(error.message); } }
       finally { validating = false; }
     }
     actions.append(start, button('Hentikan kamera', stop), button('Validasi kode', () => validate(code.input.value)));

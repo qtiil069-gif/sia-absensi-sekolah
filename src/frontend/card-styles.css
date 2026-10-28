@@ -1,0 +1,8 @@
+/* The same millimeter geometry and Roboto font are used by the PDF renderer. */
+.id-card{position:relative;display:block;background:#fff;border:0;outline:1px solid #dbe3f1;border-radius:2mm;padding:0;color:#102b5c;font-family:"SIA Card Roboto",sans-serif;box-shadow:0 5px 15px #102b5c1a;text-align:center;overflow:hidden}
+.id-card .id-card-header{position:absolute;inset:0 auto auto 0;width:54mm;height:27.5mm;background:transparent;padding:0;display:block;margin:0}
+.id-card .id-card-header h3,.id-card .id-card-header p,.id-card .id-name,.id-card .id-nisn,.id-card .id-class,.id-card footer{display:block;white-space:pre;margin:0;padding:0;min-height:0;max-height:none;overflow:visible;letter-spacing:0;text-align:center;-webkit-line-clamp:unset}
+.id-card .id-card-title{font-weight:700}.id-card .id-school-logo{object-fit:contain;object-position:center top;margin:0;padding:0;border:0;border-radius:0;background:transparent}
+.id-card .id-photo{object-fit:cover;object-position:center;margin:0;border:0;border-radius:0;background:#eef3fc}.id-card .photo-placeholder{display:grid;place-items:center;font-family:"SIA Card Roboto",sans-serif;font-size:1.8mm;color:#102b5c}
+.id-card .id-qr{margin:0;object-fit:contain;background:#fff}.id-card .id-card-decoration{pointer-events:none}
+@media print{.id-card{outline:0;box-shadow:none;border-radius:0;print-color-adjust:exact;-webkit-print-color-adjust:exact}}
