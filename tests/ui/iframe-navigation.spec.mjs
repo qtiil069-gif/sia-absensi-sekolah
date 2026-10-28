@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { createHash, randomUUID } from 'node:crypto';
 import { root } from '../../scripts/build.mjs';
 import playwrightConfig from '../../playwright.config.mjs';
+import { reconstructCommentNormalization } from '../../scripts/render-evidence.mjs';
 
 // Windows Chromium enables native middle-click autoscroll by default. Exercise
 // that behavior on every platform instead of allowing this regression to hide
@@ -13,9 +14,14 @@ test.use({ launchOptions: { ...playwrightConfig.use.launchOptions,
 const shellUrl = 'https://sia-shell.test/exec';
 const panelUrl = 'https://script.googleusercontent.com/userCodeAppPanel?createOAuthDialog=true';
 
-async function htmlService(page, request, role = 'admin', { beforeRpc = () => {}, documentWriteTransport = false, sourceUrlFilter = false } = {}) {
-  const [index, styles, scripts] = await Promise.all(['Index.html', 'Styles.html', 'Scripts.html']
+async function htmlService(page, request, role = 'admin', { beforeRpc = () => {}, documentWriteTransport = false, sourceUrlFilter = false, observedComments = false } = {}) {
+  const [index, styles, originalScripts] = await Promise.all(['Index.html', 'Styles.html', 'Scripts.html']
     .map((name) => readFile(`${root}dist/${name}`, 'utf8')));
+  // The uploaded report's core hash is reproduced by comment normalization.
+  // Keep this separate from the unchanged-build tests and keep exact DOM hashes.
+  const reconstructed = observedComments ? reconstructCommentNormalization(originalScripts.slice(8, -9)) : null;
+  if (reconstructed) expect(reconstructed.parsedFormMatchesOriginal).toBe(true);
+  const scripts = reconstructed ? '<script>' + reconstructed.source + '</script>' : originalScripts;
   const session = randomUUID();
   const rpcCalls = [];
   // google.script.run bridges to the same .gs backend with in-memory Sheets.
@@ -90,6 +96,23 @@ async function htmlService(page, request, role = 'admin', { beforeRpc = () => {}
 }
 
 for (const role of ['admin', 'guru']) {
+  test(`document.write preserves the report-observed comment-normalized ${role} core without Pustaka SyntaxError`, async ({ page, request }) => {
+    const { ui, assertStayed, rpcCalls } = await htmlService(page, request, role,
+      { documentWriteTransport: true, observedComments: true });
+    await expect(ui.locator('#mode-badge')).toHaveText('GOOGLE SHEETS');
+    expect(rpcCalls.some((call) => call.method === 'getBootstrap' && call.result.ok)).toBe(true);
+    expect(rpcCalls.some((call) => call.method === 'getDashboard' && call.result.ok)).toBe(true);
+    if (role === 'admin') {
+      await ui.locator('#settings-nav').click();
+      await expect(ui.getByLabel('Nama sekolah', { exact: true })).toBeVisible();
+    } else await expect(ui.locator('#settings-nav')).toBeHidden();
+    for (const [route, title] of [['kelas', 'Data Kelas'], ['siswa', 'Data Siswa'], ['absensi', 'Absensi Siswa']]) {
+      await ui.locator(`nav [data-route="${route}"]`).click();
+      await expect(ui.locator('#module-title')).toHaveText(title);
+    }
+    await assertStayed();
+  });
+
   test(`sourceURL annotation filtering cannot corrupt the generated ${role} bootstrap`, async ({ page, request }) => {
     const { ui, assertStayed } = await htmlService(page, request, role, { documentWriteTransport: true, sourceUrlFilter: true });
     await expect(ui.locator('#mode-badge')).toHaveText('GOOGLE SHEETS');

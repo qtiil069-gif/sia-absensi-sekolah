@@ -1,5 +1,7 @@
 # Diagnostik rendering /dev tanpa JavaScript di Console
 
+Analisis laporan pengguna yang sudah diterima tersedia di [Analisis laporan render b304f050da18](render-evidence-b304f050.md). Laporan itu menjelaskan selisih core 1.388 byte melalui normalisasi komentar yang menghasilkan hash persis sama; penyebab error pada jalur normal tetap memerlukan sumber VM normal yang gagal.
+
 Basis investigasi: main `fc5a01d` (merge PR #10). Bukti pengguna menunjukkan /dev masih MEMUAT dengan Unexpected identifier Pustaka; karena itu deployment /exec lama bukan penjelasan yang memadai. **Penyebab transformasi pada Google belum terbukti.** SourceURL sudah dihapus pada main; uji filter sourceURL sebelumnya tetap merupakan model lokal, bukan rekaman HtmlService.
 
 ## Audit jalur dan asal teks

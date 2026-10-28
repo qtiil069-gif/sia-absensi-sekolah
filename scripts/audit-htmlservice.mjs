@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
+import { reconstructCommentNormalization } from './render-evidence.mjs';
 
 const bytesOf = (value) => Buffer.isBuffer(value) ? value : Buffer.from(value, 'utf8');
 
@@ -52,6 +53,9 @@ export async function auditHtmlService(root, capturePath) {
   const html = await readFile(path.join(root, 'dist/Scripts.html'), 'utf8');
   if (!html.startsWith('<script>\n') || !html.endsWith('</script>')) throw new Error('Unsupported script envelope.');
   const candidates = [{ id: 'core', source: Buffer.from(html.slice('<script>'.length, -'</script>'.length), 'utf8') }];
+  const normalized = reconstructCommentNormalization(candidates[0].source.toString('utf8'));
+  candidates.push({ id: 'core-comments-normalized', source: Buffer.from(normalized.source, 'utf8'),
+    parsedFormMatchesOriginal: normalized.parsedFormMatchesOriginal });
   const manifest = JSON.parse(await readFile(path.join(root, '.preview/browser-assets.json'), 'utf8'));
   for (const id of ['qr', 'pdf', 'excel']) {
     const asset = manifest[id];
@@ -64,7 +68,8 @@ export async function auditHtmlService(root, capturePath) {
       && description.bytes === asset.bytes && description.sha256 === asset.sha256 });
   }
   const result = { note: 'Local syntax and byte comparisons only. A cropped capture is not proof of truncation by Google.',
-    candidates: candidates.map(({ id, source, manifestMatches }) => ({ id, ...describeSource(source),
+    candidates: candidates.map(({ id, source, manifestMatches, parsedFormMatchesOriginal }) => ({ id, ...describeSource(source),
+      ...(parsedFormMatchesOriginal === undefined ? {} : { parsedFormMatchesOriginal }),
       ...(manifestMatches === undefined ? {} : { manifestMatches }) })) };
   if (capturePath) {
     const capture = await readFile(capturePath);
