@@ -165,10 +165,12 @@
         dirty = false;
         renderRows();
         message('Absensi berhasil disimpan.' + (context.preview ? ' Perubahan hanya berada dalam memori demo.' : ''));
+        window.SIA.toast.success('Absensi berhasil tersimpan.');
       } catch (error) {
         if (current()) {
           blocked = ['CONFLICT', 'RECOVERY_REQUIRED'].includes(error.code);
           message(error.message, true);
+          window.SIA.toast.error(error.message);
         }
       } finally { saving = false; if (current()) updateControls(); }
     }

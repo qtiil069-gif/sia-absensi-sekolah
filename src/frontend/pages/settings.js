@@ -38,7 +38,8 @@
         if (!context.isCurrent()) return;
         revision = result.revision; context.onSchoolUpdated(result);
         message('Pengaturan sekolah disimpan. Preview dan cetak kartu berikutnya memakai identitas terbaru.');
-      } catch (error) { if (context.isCurrent()) message(error.message, true); }
+        window.SIA.toast.success('Pengaturan sekolah berhasil diperbarui.');
+      } catch (error) { if (context.isCurrent()) { message(error.message, true); window.SIA.toast.error(error.message); } }
       finally { save.disabled = false; }
     });
   };

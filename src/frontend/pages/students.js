@@ -77,8 +77,9 @@
           if (!current()) return;
           ui.panel.remove();
           message('Data siswa berhasil disimpan.');
+          window.SIA.toast.success(row ? 'Data siswa berhasil diperbarui.' : 'Data siswa berhasil disimpan.');
           await load();
-        } catch (error) { if (current()) ui.message(error.message, true); }
+        } catch (error) { if (current()) { ui.message(error.message, true); window.SIA.toast.error(error.message); } }
         finally { saving = false; ui.setBusy(false); }
       });
     }
@@ -90,8 +91,9 @@
         if (!current()) return;
         editorHost.replaceChildren();
         message('Siswa dinonaktifkan tanpa menghapus riwayat.');
+        window.SIA.toast.success('Data siswa berhasil dinonaktifkan.');
         await load();
-      } catch (error) { if (current()) message(error.message, true); }
+      } catch (error) { if (current()) { message(error.message, true); window.SIA.toast.error(error.message); } }
       finally { saving = false; }
     }
     tools.append(button('Muat ulang', () => { editorHost.replaceChildren(); message(''); load(); }));
